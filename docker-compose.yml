@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   db:
@@ -26,8 +26,34 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=freshclone_db
+      - REDIS_URL=redis://redis:6379/0  # <--- Used by Celery
     depends_on:
       - db
+      - redis
+
+  # --- NEW: CELERY WORKER ---
+  worker:
+    build: ./backend
+    restart: always
+    # This command starts the background task processor
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=freshclone_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres_data:
