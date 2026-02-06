@@ -1,22 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function CategoriesPage() {
+export default function CategoriesListPage() {
   const [categories, setCategories] = useState([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    description: "",
-    display_order: 0,
-    status: true,
-  });
-  
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+  const router = useRouter();
 
-  // 1. Define fetchCategories correctly in scope
   const fetchCategories = async () => {
     try {
       const res = await axios.get("http://localhost:8000/api/v1/categories/");
@@ -29,77 +20,6 @@ export default function CategoriesPage() {
   useEffect(() => {
     fetchCategories();
   }, []);
-
-  const handleChange = (e: any) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setSelectedFile(e.target.files[0]);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage("");
-    const token = localStorage.getItem("token");
-
-    // CRITICAL: We use FormData to send the File and Form fields together
-    const data = new FormData();
-    data.append("name", formData.name);
-    data.append("slug", formData.slug);
-    data.append("description", formData.description || "");
-    data.append("display_order", String(formData.display_order));
-    data.append("status", String(formData.status));
-    
-    if (selectedFile) {
-      data.append("image", selectedFile);
-    }
-
-    try {
-      const url = editingId 
-        ? `http://localhost:8000/api/v1/categories/${editingId}`
-        : "http://localhost:8000/api/v1/categories/";
-      
-      const method = editingId ? "put" : "post";
-
-      await axios({
-        method: method,
-        url: url,
-        data: data,
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data" 
-        }
-      });
-
-      setMessage(editingId ? "✅ Updated successfully!" : "✅ Created successfully!");
-      
-      // Reset Form
-      setFormData({ name: "", slug: "", description: "", display_order: 0, status: true });
-      setSelectedFile(null);
-      setEditingId(null);
-      
-      // 2. Refresh the list
-      fetchCategories();
-
-    } catch (err: any) {
-      console.error("Upload failed", err);
-      setMessage("❌ Error: " + (err.response?.data?.detail || "Action failed"));
-    }
-  };
-
-  const handleEdit = (cat: any) => {
-    setEditingId(cat.id);
-    setFormData({
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description || "",
-      display_order: cat.display_order || 0,
-      status: cat.status,
-    });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this category?")) return;
@@ -114,41 +34,17 @@ export default function CategoriesPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Manage Categories</h1>
-
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-lg font-semibold mb-4">{editingId ? "✏️ Edit Category" : "➕ Add New Category"}</h2>
-        
-        {message && <p className="mb-4 font-bold text-sm">{message}</p>}
-
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input name="name" value={formData.name} onChange={handleChange} placeholder="Category Name" className="border p-2 rounded" required />
-          <input name="slug" value={formData.slug} onChange={handleChange} placeholder="Manual Slug (e.g. fresh-fish)" className="border p-2 rounded" required />
-          
-          <div className="flex flex-col">
-            <label className="text-xs font-bold text-gray-500 mb-1">Category Image</label>
-            <input type="file" onChange={handleFileChange} className="border p-1 rounded text-sm" accept="image/*" />
-          </div>
-
-          <input name="display_order" type="number" value={formData.display_order} onChange={handleChange} placeholder="Order" className="border p-2 rounded" />
-          
-          <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Description" className="border p-2 rounded md:col-span-2" />
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" name="status" checked={formData.status} onChange={handleChange} id="status" className="h-4 w-4 text-green-600" />
-            <label htmlFor="status" className="text-sm font-medium">Is Active</label>
-          </div>
-
-          <div className="md:col-span-2 flex space-x-2">
-            <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700">
-              {editingId ? "Update" : "Save Category"}
-            </button>
-            {editingId && <button type="button" onClick={() => { setEditingId(null); setFormData({name: "", slug: "", description: "", display_order: 0, status: true}); }} className="bg-gray-400 text-white px-6 py-2 rounded">Cancel</button>}
-          </div>
-        </form>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Manage Categories</h1>
+        {/* REDIRECT TO ADD PAGE */}
+        <Link 
+          href="/admin/categories/add" 
+          className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-all shadow-md"
+        >
+          ➕ Add New Category
+        </Link>
       </div>
 
-      {/* --- DATA TABLE --- */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <table className="min-w-full text-left">
           <thead className="bg-gray-100 text-xs font-bold text-gray-600 uppercase">
@@ -182,9 +78,16 @@ export default function CategoriesPage() {
                     {cat.status ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-right space-x-3">
-                  <button onClick={() => handleEdit(cat)} className="text-blue-600 font-bold hover:underline">Edit</button>
-                  <button onClick={() => handleDelete(cat.id)} className="text-red-600 font-bold hover:underline">Delete</button>
+                <td className="px-6 py-4 text-right space-x-4">
+                  <button 
+                    onClick={() => router.push(`/admin/categories/add?id=${cat.id}`)} 
+                    className="text-blue-600 font-bold hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(cat.id)} className="text-red-600 font-bold hover:underline">
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

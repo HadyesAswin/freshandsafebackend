@@ -24,7 +24,11 @@ export default function AdminLayout({
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: "🏠" },
     { name: "Categories", href: "/admin/categories", icon: "📁" },
-  { name: "Certificates", href: "/admin/certificates", icon: "📜" }, // ✅ NEW
+  { name: "Certificates", href: "/admin/certificates", icon: "📜" },
+  { name: "News", href: "/admin/news", icon: "📰" },
+  { name: "FAQs", href: "/admin/faq", icon: "❓" },
+  { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+  { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
     { name: "Products", href: "/admin/products", icon: "📦" }, // (Coming Soon)
     { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
     { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
