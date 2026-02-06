@@ -7,6 +7,10 @@ from app.api.v1.endpoints import banners
 from app.api.v1.endpoints import products
 from app.api.v1.endpoints import termsandconditions
 from app.api.v1.endpoints import refundpolicy
+from app.api.v1.endpoints import news
+from app.api.v1.endpoints import faq
+from app.api.v1.endpoints import privacy
+from app.api.v1.endpoints import marquee
 
 api_router = APIRouter()
 
@@ -28,3 +32,10 @@ api_router.include_router(products.router, prefix="/products", tags=["Products"]
 api_router.include_router(termsandconditions.router,prefix="/termsandconditions",tags=["Terms & Conditions"])
 
 api_router.include_router(refundpolicy.router,prefix="/refund-policy",tags=["Refund Policy"])
+api_router.include_router(news.router, prefix="/news", tags=["news"])
+
+api_router.include_router(faq.router, prefix="/faq", tags=["faq"])
+
+api_router.include_router(privacy.router, prefix="/privacy", tags=["privacy"])
+
+api_router.include_router(marquee.router, prefix="/marquee", tags=["marquee"])

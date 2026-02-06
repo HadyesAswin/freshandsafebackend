@@ -29,6 +29,12 @@ export default function AdminLayout({
   { name: "Products", href: "/admin/products", icon: "📦" }, 
   { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
   { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
+  { name: "Certificates", href: "/admin/certificates", icon: "📜" },
+  { name: "News", href: "/admin/news", icon: "📰" },
+  { name: "FAQs", href: "/admin/faq", icon: "❓" },
+  { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+  { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
+    { name: "Products", href: "/admin/products", icon: "📦" }, // (Coming Soon)
     { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
     { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
   ];
