@@ -49,3 +49,48 @@ class Certificate(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class News(Base):
+    __tablename__ = "news"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True, nullable=False)
+    slug = Column(String, unique=True, index=True, nullable=False)
+    content = Column(Text, nullable=False)
+    feature_image = Column(String, nullable=True)
+    status = Column(Boolean, default=True) # True = Published, False = Draft
+    published_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class FAQ(Base):
+    __tablename__ = "faqs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question = Column(String, nullable=False)
+    answer = Column(Text, nullable=False)
+    display_order = Column(Integer, default=0)
+    status = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())  
+
+class PrivacyPolicy(Base):
+    __tablename__ = "privacy_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False) # For the policy content
+    display_order = Column(Integer, default=0)
+    status = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())     
+
+class Marquee(Base):
+    __tablename__ = "marquees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())     
