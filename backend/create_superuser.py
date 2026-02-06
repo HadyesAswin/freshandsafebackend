@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
-from app.models.user import User, UserRole
+from app.models import User, UserRole
 from app.core.security import get_password_hash
 
 def create_superuser():
