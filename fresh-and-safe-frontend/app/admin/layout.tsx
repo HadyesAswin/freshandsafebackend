@@ -24,6 +24,11 @@ export default function AdminLayout({
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: "🏠" },
     { name: "Categories", href: "/admin/categories", icon: "📁" },
+  { name: "Certificates", href: "/admin/certificates", icon: "📜" }, // ✅ NEW
+  { name: "Banners", href: "/admin/banners", icon: "🖼️" },
+  { name: "Products", href: "/admin/products", icon: "📦" }, 
+  { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
+  { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
   { name: "Certificates", href: "/admin/certificates", icon: "📜" },
   { name: "News", href: "/admin/news", icon: "📰" },
   { name: "FAQs", href: "/admin/faq", icon: "❓" },
