@@ -11,7 +11,8 @@ app = FastAPI(title="FreshToHome Clone Admin API")
 # 1. Set up CORS (So your Frontend can talk to this Backend)
 origins = [
     "http://localhost",
-    "http://localhost:3000", # Next.js
+    "http://localhost:3000",
+    "http://172.29.240.1:3000", # Next.js
 ]
 
 app.add_middleware(
