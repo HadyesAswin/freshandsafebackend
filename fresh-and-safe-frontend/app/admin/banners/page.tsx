@@ -3,42 +3,42 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
-export default function CertificatesPage() {
-  const [certificates, setCertificates] = useState<any[]>([]);
+export default function BannersPage() {
+  const [banners, setBanners] = useState<any[]>([]);
   const router = useRouter();
 
-  const fetchCertificates = async () => {
+  const fetchBanners = async () => {
     const res = await axios.get(
-      "http://localhost:8000/api/v1/certificates/"
+      "http://localhost:8000/api/v1/banners/"
     );
-    setCertificates(res.data);
+    setBanners(res.data);
   };
 
   useEffect(() => {
-    fetchCertificates();
+    fetchBanners();
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Delete this certificate?")) return;
+    if (!confirm("Delete this banner?")) return;
     const token = localStorage.getItem("token");
 
     await axios.delete(
-      `http://localhost:8000/api/v1/certificates/${id}`,
+      `http://localhost:8000/api/v1/banners/${id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    fetchCertificates();
+    fetchBanners();
   };
 
   return (
     <div className="max-w-6xl mx-auto p-4">
       <div className="flex justify-between mb-6">
-        <h1 className="text-2xl font-bold">Certificates</h1>
+        <h1 className="text-2xl font-bold">Banners</h1>
         <button
-          onClick={() => router.push("/admin/certificates/form")}
+          onClick={() => router.push("/admin/banners/form")}
           className="bg-green-600 text-white px-4 py-2 rounded font-bold"
         >
-          ➕ Add Certificate
+          ➕ Add Banner
         </button>
       </div>
 
@@ -48,32 +48,34 @@ export default function CertificatesPage() {
             <tr>
               <th className="p-3">Image</th>
               <th className="p-3">Order</th>
+              <th className="p-3">URL</th>
               <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {certificates.map((cert) => (
-              <tr key={cert.id} className="border-t">
+            {banners.map((banner) => (
+              <tr key={banner.id} className="border-t">
                 <td className="p-3">
                   <img
-                    src={`http://localhost:8000${cert.image}`}
-                    className="w-14 h-14 object-contain"
+                    src={`http://localhost:8000${banner.image}`}
+                    className="w-20 h-12 object-contain"
                   />
                 </td>
-                <td className="p-3 font-bold">{cert.display_order}</td>
+                <td className="p-3 font-bold">{banner.display_order}</td>
+                <td className="p-3 text-sm truncate max-w-xs">
+                  {banner.url || "-"}
+                </td>
                 <td className="p-3 text-right space-x-3">
                   <button
                     onClick={() =>
-                      router.push(
-                        `/admin/certificates/form?id=${cert.id}`
-                      )
+                      router.push(`/admin/banners/form?id=${banner.id}`)
                     }
                     className="text-blue-600 font-bold"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(cert.id)}
+                    onClick={() => handleDelete(banner.id)}
                     className="text-red-600 font-bold"
                   >
                     Delete
