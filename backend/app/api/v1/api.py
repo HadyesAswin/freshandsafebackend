@@ -11,6 +11,10 @@ from app.api.v1.endpoints import news
 from app.api.v1.endpoints import faq
 from app.api.v1.endpoints import privacy
 from app.api.v1.endpoints import marquee
+from app.api.v1.endpoints import contact # Import
+from app.api.v1.endpoints import daily_deals
+from app.api.v1.endpoints import outlets
+from app.api.v1.endpoints import coupons
 
 api_router = APIRouter()
 
@@ -39,3 +43,11 @@ api_router.include_router(faq.router, prefix="/faq", tags=["faq"])
 api_router.include_router(privacy.router, prefix="/privacy", tags=["privacy"])
 
 api_router.include_router(marquee.router, prefix="/marquee", tags=["marquee"])
+
+api_router.include_router(contact.router, prefix="/contact", tags=["contact"])
+
+api_router.include_router(daily_deals.router, prefix="/daily-deals", tags=["daily-deals"])
+
+api_router.include_router(outlets.router, prefix="/outlets", tags=["outlets"])
+
+api_router.include_router(coupons.router, prefix="/coupons", tags=["coupons"])
