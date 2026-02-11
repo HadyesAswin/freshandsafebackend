@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -14,42 +15,38 @@ export default function AdminLayout({
 
   // Logout Function
   const handleLogout = () => {
-    // 1. Clear Token
     localStorage.removeItem("token");
-    // 2. Redirect to Login
     router.push("/login");
   };
 
-  // Navigation Links
+  // Navigation Links (DEDUPED & CLEAN)
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: "🏠" },
     { name: "Categories", href: "/admin/categories", icon: "📁" },
-  { name: "Certificates", href: "/admin/certificates", icon: "📜" }, // ✅ NEW
-  { name: "Banners", href: "/admin/banners", icon: "🖼️" },
-  { name: "Products", href: "/admin/products", icon: "📦" }, 
-  { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
-  { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
-  { name: "Certificates", href: "/admin/certificates", icon: "📜" },
-  { name: "News", href: "/admin/news", icon: "📰" },
-  { name: "FAQs", href: "/admin/faq", icon: "❓" },
-  { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
-  { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
-    { name: "Products", href: "/admin/products", icon: "📦" }, // (Coming Soon)
-    { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
-    { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
+    { name: "Certificates", href: "/admin/certificates", icon: "📜" },
+    { name: "Banners", href: "/admin/banners", icon: "🖼️" },
+    { name: "Products", href: "/admin/products", icon: "📦" },
+    { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
+    { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
+    { name: "News", href: "/admin/news", icon: "📰" },
+    { name: "FAQs", href: "/admin/faq", icon: "❓" },
+    { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+    { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
+    { name: "Orders", href: "/admin/orders", icon: "🛒" },
+    { name: "Users", href: "/admin/users", icon: "👥" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* --- SIDEBAR --- */}
-      <aside 
+      {/* SIDEBAR */}
+      <aside
         className={`bg-slate-800 text-white w-64 min-h-screen flex-shrink-0 transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64"
         } fixed md:relative z-10`}
       >
         <div className="p-4 flex justify-between items-center border-b border-slate-700">
           <h1 className="text-xl font-bold text-green-400">FreshAdmin</h1>
-          <button 
+          <button
             className="md:hidden text-gray-400 hover:text-white"
             onClick={() => setIsSidebarOpen(false)}
           >
@@ -59,7 +56,10 @@ export default function AdminLayout({
 
         <nav className="mt-6 px-2 space-y-2">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              pathname.startsWith(item.href + "/");
+
             return (
               <Link
                 key={item.href}
@@ -77,7 +77,7 @@ export default function AdminLayout({
           })}
         </nav>
 
-        {/* LOGOUT BUTTON (Bottom) */}
+        {/* LOGOUT BUTTON */}
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-700 bg-slate-800">
           <button
             onClick={handleLogout}
@@ -89,11 +89,11 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        {/* Mobile Header (Hamburger) */}
+        {/* Mobile Header */}
         <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center">
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="text-gray-600 p-2 rounded hover:bg-gray-100"
           >
@@ -103,9 +103,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-8 overflow-y-auto">
-          {children}
-        </div>
+        <div className="flex-1 p-8 overflow-y-auto">{children}</div>
       </main>
     </div>
   );
