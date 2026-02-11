@@ -105,6 +105,8 @@ class Product(Base):
         back_populates="products"
     )
 
+    daily_deal = relationship("DailyDeal", back_populates="product", uselist=False, cascade="all, delete-orphan")
+
 
 class TermsAndConditions(Base):
     __tablename__ = "terms_and_conditions"
@@ -173,3 +175,131 @@ class Marquee(Base):
     text = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())     
+
+
+class ContactInfo(Base):
+    __tablename__ = "contact_info"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False) # e.g., "Main Office" or "Support Desk"
+    email = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    description = Column(Text, nullable=True) # e.g., "Available 24/7" or Address info
+    created_at = Column(DateTime, default=func.now())    
+
+class DailyDeal(Base):
+    __tablename__ = "daily_deals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Foreign Key linking to your Product table
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), unique=True, nullable=False)
+    
+    offer_price = Column(Float, nullable=False) # The special deal price
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationship back to Product
+    product = relationship("Product", back_populates="daily_deal")   
+
+
+class Outlet(Base):
+    __tablename__ = "outlets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    outlet_name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False) # We store the HASH, not plain text
+    
+    phone = Column(String, nullable=False)
+    address = Column(String, nullable=False)
+    city = Column(String, nullable=False)
+    district = Column(String, nullable=False)
+    state = Column(String, nullable=False)
+    zipcode = Column(String, nullable=False)
+    landmark = Column(String, nullable=True)
+    
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    
+    status = Column(Boolean, default=True) # Active/Inactive
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())     
+
+
+# Enum for Discount Type
+class DiscountType(str, enum.Enum):
+    PERCENTAGE = "percentage"
+    FIXED = "fixed"
+
+# Enum for Applicability
+class ApplicableType(str, enum.Enum):
+    ALL = "all"
+    CATEGORY = "category"
+    PRODUCT = "product"
+
+# 1. Main Coupon Table
+class Coupon(Base):
+    __tablename__ = "coupons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)
+    
+    discount_type = Column(String, default=DiscountType.FIXED) # 'percentage' or 'fixed'
+    discount_value = Column(Float, nullable=False)
+    
+    min_order_amount = Column(Float, default=0.0)
+    max_discount_amount = Column(Float, nullable=True) # Max cap for percentage
+    
+    total_usage_limit = Column(Integer, nullable=True)
+    usage_limit_per_user = Column(Integer, default=1)
+    used_count = Column(Integer, default=0)
+    
+    valid_from = Column(DateTime, nullable=False)
+    valid_to = Column(DateTime, nullable=False)
+    
+    # "all", "category", "product"
+    applicable_type = Column(String, default=ApplicableType.ALL) 
+    
+    status = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    categories = relationship("CouponCategory", back_populates="coupon", cascade="all, delete-orphan")
+    products = relationship("CouponProduct", back_populates="coupon", cascade="all, delete-orphan")
+
+# 2. Association Table: Coupon -> Categories
+class CouponCategory(Base):
+    __tablename__ = "coupon_categories"
+    id = Column(Integer, primary_key=True, index=True)
+    coupon_id = Column(Integer, ForeignKey("coupons.id", ondelete="CASCADE"))
+    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"))
+    
+    coupon = relationship("Coupon", back_populates="categories")
+    # We assume Category model exists
+    category = relationship("Category") 
+
+# 3. Association Table: Coupon -> Products
+class CouponProduct(Base):
+    __tablename__ = "coupon_products"
+    id = Column(Integer, primary_key=True, index=True)
+    coupon_id = Column(Integer, ForeignKey("coupons.id", ondelete="CASCADE"))
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"))
+    
+    coupon = relationship("Coupon", back_populates="products")
+    # We assume Product model exists
+    product = relationship("Product")
+
+# 4. Usage Table (For tracking history)
+class CouponUsage(Base):
+    __tablename__ = "coupon_usage"
+    id = Column(Integer, primary_key=True, index=True)
+    coupon_id = Column(Integer, ForeignKey("coupons.id"))
+    user_id = Column(Integer, ForeignKey("users.id")) # user table is "user" (singular) usually
+    order_id = Column(Integer, nullable=True) # Link to order if you have one
+    discount_amount = Column(Float, nullable=False)
+    used_at = Column(DateTime(timezone=True), server_default=func.now())    
