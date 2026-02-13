@@ -226,7 +226,13 @@ class Outlet(Base):
     status = Column(Boolean, default=True) # Active/Inactive
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())     
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now()) 
+
+    shop_products = relationship(
+        "ShopProduct",
+        back_populates="outlet",
+        cascade="all, delete-orphan"
+    )    
 
 
 # Enum for Discount Type
@@ -303,3 +309,43 @@ class CouponUsage(Base):
     order_id = Column(Integer, nullable=True) # Link to order if you have one
     discount_amount = Column(Float, nullable=False)
     used_at = Column(DateTime(timezone=True), server_default=func.now())    
+
+
+class ShopProduct(Base):
+    __tablename__ = "shop_products"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign Key → Outlet (Shop)
+    outlet_id = Column(
+        Integer,
+        ForeignKey("outlets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Foreign Key → Product
+    product_id = Column(
+        Integer,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Availability of product in this specific shop
+    is_available = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    outlet = relationship("Outlet", back_populates="shop_products")
+    product = relationship("Product")
+
+class Zipcode(Base):
+    __tablename__ = "zipcodes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    zipcode = Column(String, unique=True, index=True, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
