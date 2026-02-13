@@ -20,6 +20,7 @@ router = APIRouter()
 
 # ---------- HELPERS ----------
 def save_upload_file(upload_file: UploadFile) -> str:
+    # Ensure directory exists
     upload_dir = "static/uploads/products"
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -27,15 +28,29 @@ def save_upload_file(upload_file: UploadFile) -> str:
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer)
 
+    # Return the URL path
     return f"/static/uploads/products/{upload_file.filename}"
 
 
 def clear_products_cache():
+    """
+    Clears BOTH general product lists AND outlet specific product lists.
+    This ensures Shops see new Admin products instantly.
+    """
     try:
         r = get_redis_client()
+        
+        # 1. Clear General Product Cache (products:*)
         keys = list(r.scan_iter("products:*"))
         if keys:
             r.delete(*keys)
+            
+        # 2. ✅ CRITICAL FIX: Clear Outlet Cache (outlet_products:*)
+        # This forces all shops to re-fetch the master product list next time they load.
+        outlet_keys = list(r.scan_iter("outlet_products:*"))
+        if outlet_keys:
+            r.delete(*outlet_keys)
+            
     except Exception as e:
         print(f"⚠️ Redis Warning: {e}")
 
@@ -96,7 +111,10 @@ def create_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_admin),
 ):
-    image_url = save_upload_file(image) if image else None
+    # Check for image before processing
+    image_url = None
+    if image:
+        image_url = save_upload_file(image)
 
     product = ProductModel(
         category_id=category_id,
@@ -117,8 +135,10 @@ def create_product(
     db.commit()
     db.refresh(product)
 
+    # This will now clear the Shop cache too!
     clear_products_cache()
-    notify_admin_event.delay("CREATE", f"New Product Added: {product.name}")
+    
+    # notify_admin_event.delay("CREATE", f"New Product Added: {product.name}")
 
     return product
 
@@ -164,7 +184,7 @@ def update_product(
     db.refresh(product)
 
     clear_products_cache()
-    notify_admin_event.delay("UPDATE", f"Product Updated: {product.id}")
+    # notify_admin_event.delay("UPDATE", f"Product Updated: {product.id}")
 
     return product
 
@@ -183,6 +203,6 @@ def delete_product(
     db.commit()
 
     clear_products_cache()
-    notify_admin_event.delay("DELETE", f"Product Deleted: {product_id}")
+    # notify_admin_event.delay("DELETE", f"Product Deleted: {product_id}")
 
     return product
