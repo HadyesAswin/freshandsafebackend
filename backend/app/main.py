@@ -12,7 +12,8 @@ app = FastAPI(title="FreshToHome Clone Admin API")
 origins = [
     "http://localhost",
     "http://localhost:3000",
-    "http://172.29.240.1:3000", # Next.js
+    "http://172.29.240.1:3000",
+    "http://192.168.1.7:3000", # Next.js
 ]
 
 app.add_middleware(

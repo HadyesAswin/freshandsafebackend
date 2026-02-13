@@ -15,6 +15,8 @@ from app.api.v1.endpoints import contact # Import
 from app.api.v1.endpoints import daily_deals
 from app.api.v1.endpoints import outlets
 from app.api.v1.endpoints import coupons
+from app.api.v1.endpoints.outlet import outletviewproduct
+from app.api.v1.endpoints import location_products
 
 api_router = APIRouter()
 
@@ -51,3 +53,7 @@ api_router.include_router(daily_deals.router, prefix="/daily-deals", tags=["dail
 api_router.include_router(outlets.router, prefix="/outlets", tags=["outlets"])
 
 api_router.include_router(coupons.router, prefix="/coupons", tags=["coupons"])
+
+api_router.include_router(outletviewproduct.router,prefix="/outlet",tags=["Outlet Products"])
+
+api_router.include_router(location_products.router,prefix="/location-products",tags=["Location Products"])

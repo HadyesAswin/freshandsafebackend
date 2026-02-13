@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # --- DATABASE VARIABLES ---
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_SERVER: str = "db"
+    POSTGRES_SERVER: str = "localhost"
     POSTGRES_DB: str = "freshclone_db"
 
     # --- REDIS & CELERY (This is what was missing!) ---
