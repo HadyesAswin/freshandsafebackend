@@ -1,40 +1,100 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models import Product, ShopProduct
-from app.services.map_service import (
-    get_lat_lng_from_zipcode,
-    get_nearby_outlets
-)
+# ✅ Import Marquee and Banner models
+from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner
+from app.services.map_service import get_lat_lng_from_zipcode, get_nearby_outlets
 
 router = APIRouter()
 
-
 @router.get("/")
-def get_products_by_zipcode(zipcode: str, db: Session = Depends(get_db)):
+def get_home_data(zipcode: str, db: Session = Depends(get_db)):
+    # 1. Fetch Marquee (Latest one)
+    marquee = db.query(Marquee).order_by(Marquee.created_at.desc()).first()
+    marquee_text = marquee.text if marquee else "Welcome to Fresh&Safe!"
 
-    # 1️⃣ Convert zipcode → lat/lng
+    # 2. Fetch Banners
+    banners = db.query(Banner).order_by(Banner.display_order).all()
+    banner_list = [{"id": b.id, "image": b.image, "url": b.url} for b in banners]
+
+    # 3. Location & Outlets Logic (Existing)
     user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
-
+    
     if not user_lat:
-        raise HTTPException(status_code=404, detail="Invalid zipcode")
+        # Return basic data even if zipcode is invalid (so banners/marquee still show)
+        return {
+            "marquee": marquee_text,
+            "banners": banner_list,
+            "daily_deals": [],
+            "categories": [],
+            "products": [],
+            "valid_location": False
+        }
 
-    # 2️⃣ Find nearby outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
     outlet_ids = [outlet.id for outlet in nearby_outlets]
 
     if not outlet_ids:
-        return []
+        return {
+            "marquee": marquee_text,
+            "banners": banner_list,
+            "daily_deals": [],
+            "categories": [],
+            "products": [],
+            "valid_location": False
+        }
 
-    # 3️⃣ Get products from those outlets
-    products = db.query(Product)\
-        .join(ShopProduct, ShopProduct.product_id == Product.id)\
+    # 4. Get Products (Existing)
+    products = (
+        db.query(Product)
+        .join(ShopProduct, ShopProduct.product_id == Product.id)
+        .outerjoin(DailyDeal, DailyDeal.product_id == Product.id)
         .filter(
             ShopProduct.outlet_id.in_(outlet_ids),
             ShopProduct.is_available == True,
             Product.status == True,
             Product.is_available == True
-        )\
+        )
         .all()
+    )
 
-    return products
+    daily_deals = []
+    normal_products = []
+    category_ids = set()
+
+    for product in products:
+        category_ids.add(product.category_id)
+        if product.daily_deal:
+            daily_deals.append({
+                "id": product.id,
+                "name": product.name,
+                "image": product.image,
+                "price": product.daily_deal.offer_price,
+                "original_price": product.price
+            })
+        else:
+            normal_products.append({
+                "id": product.id,
+                "name": product.name,
+                "image": product.image,
+                "price": product.price
+            })
+
+    # 5. Get Categories
+    categories = (
+        db.query(Category)
+        .filter(Category.id.in_(category_ids), Category.status == True)
+        .order_by(Category.display_order)
+        .all()
+    )
+
+    category_list = [{"id": c.id, "name": c.name, "image": c.image, "slug": c.slug} for c in categories]
+
+    return {
+        "marquee": marquee_text,
+        "banners": banner_list,
+        "daily_deals": daily_deals,
+        "categories": category_list,
+        "products": normal_products[:6],
+        "valid_location": True
+    }
