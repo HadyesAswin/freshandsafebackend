@@ -36,9 +36,28 @@ function CategoryFormContent() {
     }
   }, [editingId]);
 
+  // ✅ Helper to clean strings for URLs
+  const generateSlug = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[^\w-]+/g, "");
+  };
+
   const handleChange = (e: any) => {
     const { name, value, type, checked } = e.target;
-    setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
+    
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: type === "checkbox" ? checked : value };
+
+      // ✅ AUTO-GENERATE SLUG Logic
+      // If we are typing in the 'name' field, update the 'slug' field automatically
+      if (name === "name") {
+        newData.slug = generateSlug(value);
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,11 +67,14 @@ function CategoryFormContent() {
 
     const data = new FormData();
     data.append("name", formData.name);
-    data.append("slug", formData.slug);
+    data.append("slug", formData.slug); // Send the auto-generated slug
     data.append("description", formData.description);
     data.append("display_order", String(formData.display_order));
-    data.append("status", String(formData.status));
-    if (selectedFile) data.append("image", selectedFile);
+    data.append("status", String(formData.status)); // Backend expects "true"/"false" string for FormData
+    
+    if (selectedFile) {
+        data.append("image", selectedFile);
+    }
 
     try {
       const url = editingId 
@@ -66,9 +88,9 @@ function CategoryFormContent() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
       });
 
-      router.push("/admin/categories"); // Go back to list
-    } catch (err) {
-      alert("Error: Failed to save category.");
+      router.push("/admin/categories");
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Error: Failed to save category.");
     } finally {
       setLoading(false);
     }
@@ -85,11 +107,25 @@ function CategoryFormContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700">Category Name</label>
-            <input name="name" value={formData.name} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" required />
+            <input 
+                name="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" 
+                placeholder="e.g. Fresh Fruits"
+                required 
+            />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">Manual URL Slug</label>
-            <input name="slug" value={formData.slug} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" required />
+            <label className="text-sm font-bold text-gray-700">URL Slug (Auto-generated)</label>
+            <input 
+                name="slug" 
+                value={formData.slug} 
+                onChange={handleChange} 
+                className="w-full border p-3 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none text-gray-600 font-mono" 
+                placeholder="e.g. fresh-fruits"
+                required 
+            />
           </div>
         </div>
 
@@ -111,18 +147,16 @@ function CategoryFormContent() {
 
         <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
           <input type="checkbox" name="status" checked={formData.status} onChange={handleChange} className="h-5 w-5 rounded text-green-600 focus:ring-green-500" />
-          <span className="font-semibold text-gray-700 text-sm">Active (Will be visible on the website)</span>
+          <span className="font-semibold text-gray-700 text-sm">Active (Visible on website)</span>
         </div>
 
-        <div className="flex justify-end pt-4">
-          <button 
+        <button 
             type="submit" 
             disabled={loading}
-            className="px-10 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400 transition-all shadow-lg"
-          >
-            {loading ? "Processing..." : editingId ? "Update Category" : "Save Category"}
-          </button>
-        </div>
+            className="w-full py-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400 transition-all shadow-lg active:scale-95"
+        >
+            {loading ? "Saving..." : editingId ? "Update Category" : "Save Category"}
+        </button>
       </form>
     </div>
   );
