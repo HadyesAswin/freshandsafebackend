@@ -248,7 +248,7 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* --- 4. CATEGORIES (Max 4 + View All) --- */}
+                {/* --- 4. CATEGORIES (SHOW ALL) --- */}
                 {data.categories.length > 0 && (
                     <section>
                         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -256,10 +256,10 @@ export default function Home() {
                             Shop By Category
                         </h2>
                         
+                        {/* Removed limit/slice: Shows ALL categories */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                            {/* Slice to show only first 4 */}
-                            {data.categories.slice(0, 4).map((cat) => (
-                                <Link key={cat.id} href={`/category/${cat.slug}`} className="group bg-white p-4 rounded-xl border border-gray-100 hover:shadow-lg hover:border-green-200 transition-all text-center">
+                            {data.categories.map((cat) => (
+                                <Link key={cat.id} href={`/user/categories/${cat.slug}`} className="group bg-white p-4 rounded-xl border border-gray-100 hover:shadow-lg hover:border-green-200 transition-all text-center">
                                     <div className="w-20 h-20 mx-auto mb-3 bg-gray-50 rounded-full overflow-hidden">
                                         {cat.image ? (
                                             <img src={`http://localhost:8000${cat.image}`} className="w-full h-full object-cover" alt={cat.name} />
@@ -268,20 +268,6 @@ export default function Home() {
                                     <p className="font-bold text-gray-700 group-hover:text-green-700">{cat.name}</p>
                                 </Link>
                             ))}
-                            
-                            {/* View All Button (Shows if there are more than 4 categories) */}
-                            {/* View All Button */}
-                            {data.categories.length > 4 && (
-                                <Link 
-                                    href="/user/categories"   // ✅ NEW LINK
-                                    className="flex flex-col items-center justify-center bg-green-50 p-4 rounded-xl border border-dashed border-green-200 hover:bg-green-100 transition-all cursor-pointer"
-                                >
-                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-green-600 mb-2">
-                                        →
-                                    </div>
-                                    <p className="font-bold text-green-700">View All</p>
-                                </Link>
-                            )}
                         </div>
                     </section>
                 )}

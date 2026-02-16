@@ -98,3 +98,55 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
         "products": normal_products[:6],
         "valid_location": True
     }
+
+
+# ... existing imports ...
+
+@router.get("/category/{slug}")
+def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_db)):
+    # 1. Get User Location from Zipcode
+    user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+    if not user_lat:
+        raise HTTPException(status_code=404, detail="Invalid zipcode")
+
+    # 2. Find the Category ID from the Slug (e.g., "vegetables" -> ID 1)
+    category = db.query(Category).filter(Category.slug == slug).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    # 3. Find Nearby Shops
+    nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
+    outlet_ids = [outlet.id for outlet in nearby_outlets]
+
+    if not outlet_ids:
+        return {"category_name": category.name, "products": []}
+
+    # 4. Fetch Products that match Category AND Location
+    products = (
+        db.query(Product)
+        .join(ShopProduct, ShopProduct.product_id == Product.id)
+        .filter(
+            Product.category_id == category.id,       # <--- Filter by Category
+            ShopProduct.outlet_id.in_(outlet_ids),    # <--- Filter by Location
+            ShopProduct.is_available == True,
+            Product.status == True,
+            Product.is_available == True
+        )
+        .all()
+    )
+
+    # 5. Return clean JSON
+    return {
+        "category_name": category.name,
+        "products": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "image": p.image,
+                "price": p.price,
+                "compare_price": p.compare_price,
+                "unit": p.unit
+            }
+            for p in products
+        ]
+    }    
