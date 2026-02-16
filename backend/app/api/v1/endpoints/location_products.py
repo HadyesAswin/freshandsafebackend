@@ -149,4 +149,4 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
             }
             for p in products
         ]
-    }
+    }    
