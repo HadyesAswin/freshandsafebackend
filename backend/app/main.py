@@ -6,6 +6,8 @@ from app.tasks import test_email_task # <--- Import the task
 from fastapi.staticfiles import StaticFiles
 import os
 
+from app.routers import outlet_auth
+
 app = FastAPI(title="FreshToHome Clone Admin API")
 
 # 1. Set up CORS (So your Frontend can talk to this Backend)
@@ -40,3 +42,5 @@ def test_celery_endpoint(email: str):
 
 os.makedirs("static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(outlet_auth.router, prefix="/api/v1/outlet", tags=["Outlet Auth"])

@@ -7,7 +7,7 @@ def create_superuser():
     db: Session = SessionLocal()
     
     # 1. Check if an admin already exists
-    existing_admin = db.query(User).filter(User.email == "admin@freshtohome.com").first()
+    existing_admin = db.query(User).filter(User.email == "etournament49@gmail.com").first()
     if existing_admin:
         print("Admin user already exists!")
         return
@@ -16,7 +16,7 @@ def create_superuser():
     print("Creating Superuser...")
     super_user = User(
         full_name="Super Admin",
-        email="admin@freshtohome.com",
+        email="etournament49@gmail.com",
         hashed_password=get_password_hash("admin123"), # Default password
         role=UserRole.ADMIN,
         is_active=True
@@ -25,7 +25,7 @@ def create_superuser():
     db.add(super_user)
     db.commit()
     print("Superuser created successfully!")
-    print("Email: admin@freshtohome.com")
+    print("Email: etournament49@gmail.com")
     print("Password: admin123")
     db.close()
 

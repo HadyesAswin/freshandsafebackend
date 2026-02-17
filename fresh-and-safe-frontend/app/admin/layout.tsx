@@ -37,6 +37,7 @@ export default function AdminLayout({
   { name: "Contact Us", href: "/admin/contact", icon: "📞" },
   { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
   { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
+  { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
     { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
     { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
   ];
