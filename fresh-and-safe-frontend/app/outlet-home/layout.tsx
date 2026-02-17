@@ -33,7 +33,7 @@ export default function OutletLayout({
     { name: "Manage Products", href: "/outlet-home/outletviewproduct", icon: "📦" },
     { name: "Orders", href: "/outlet-home/orders", icon: "🛒" },
     { name: "Profile", href: "/outlet-home/profile", icon: "👤" },
-    { name: "Settings", href: "/outlet-home/settings", icon: "⚙️" },
+    { name: "ChangePassword", href: "/outlet-home/settings", icon: "⚙️" },
   ];
 
   return (

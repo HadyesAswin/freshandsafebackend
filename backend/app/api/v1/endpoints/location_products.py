@@ -1,27 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-# ✅ Import Marquee and Banner models
-from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner
+from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner, Outlet
 from app.services.map_service import get_lat_lng_from_zipcode, get_nearby_outlets
 
 router = APIRouter()
 
 @router.get("/")
 def get_home_data(zipcode: str, db: Session = Depends(get_db)):
-    # 1. Fetch Marquee (Latest one)
+    # 1. Fetch Marquee & Banners (These can show even if shops are closed)
     marquee = db.query(Marquee).order_by(Marquee.created_at.desc()).first()
     marquee_text = marquee.text if marquee else "Welcome to Fresh&Safe!"
 
-    # 2. Fetch Banners
     banners = db.query(Banner).order_by(Banner.display_order).all()
     banner_list = [{"id": b.id, "image": b.image, "url": b.url} for b in banners]
 
-    # 3. Location & Outlets Logic (Existing)
+    # 2. Location Logic
     user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
     
     if not user_lat:
-        # Return basic data even if zipcode is invalid (so banners/marquee still show)
         return {
             "marquee": marquee_text,
             "banners": banner_list,
@@ -31,9 +28,16 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
             "valid_location": False
         }
 
+    # 3. Get Nearby Outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
-    outlet_ids = [outlet.id for outlet in nearby_outlets]
 
+    # ✅ FILTER: Only include outlets where status is TRUE (Open)
+    # This single line ensures products from closed shops are NEVER fetched.
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True]
+    
+    outlet_ids = [outlet.id for outlet in active_outlets]
+
+    # If no active outlets are found nearby
     if not outlet_ids:
         return {
             "marquee": marquee_text,
@@ -41,16 +45,16 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
             "daily_deals": [],
             "categories": [],
             "products": [],
-            "valid_location": False
+            "valid_location": False 
         }
 
-    # 4. Get Products (Existing)
+    # 4. Get Products (Only from Active Outlets)
     products = (
         db.query(Product)
         .join(ShopProduct, ShopProduct.product_id == Product.id)
         .outerjoin(DailyDeal, DailyDeal.product_id == Product.id)
         .filter(
-            ShopProduct.outlet_id.in_(outlet_ids),
+            ShopProduct.outlet_id.in_(outlet_ids), # <--- Uses only active IDs
             ShopProduct.is_available == True,
             Product.status == True,
             Product.is_available == True
@@ -58,6 +62,7 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
         .all()
     )
 
+    # ... (Rest of your processing logic remains the same) ...
     daily_deals = []
     normal_products = []
     category_ids = set()
@@ -100,34 +105,35 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
     }
 
 
-# ... existing imports ...
-
 @router.get("/category/{slug}")
 def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_db)):
-    # 1. Get User Location from Zipcode
+    # 1. Get User Location
     user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
     if not user_lat:
         raise HTTPException(status_code=404, detail="Invalid zipcode")
 
-    # 2. Find the Category ID from the Slug (e.g., "vegetables" -> ID 1)
+    # 2. Find Category
     category = db.query(Category).filter(Category.slug == slug).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    # 3. Find Nearby Shops
+    # 3. Find Nearby Outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
-    outlet_ids = [outlet.id for outlet in nearby_outlets]
+    
+    # ✅ FILTER: Only include outlets where status is TRUE (Open)
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True]
+    outlet_ids = [outlet.id for outlet in active_outlets]
 
     if not outlet_ids:
         return {"category_name": category.name, "products": []}
 
-    # 4. Fetch Products that match Category AND Location
+    # 4. Fetch Products
     products = (
         db.query(Product)
         .join(ShopProduct, ShopProduct.product_id == Product.id)
         .filter(
-            Product.category_id == category.id,       # <--- Filter by Category
-            ShopProduct.outlet_id.in_(outlet_ids),    # <--- Filter by Location
+            Product.category_id == category.id,
+            ShopProduct.outlet_id.in_(outlet_ids), # <--- Uses only active IDs
             ShopProduct.is_available == True,
             Product.status == True,
             Product.is_available == True
@@ -135,7 +141,7 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
         .all()
     )
 
-    # 5. Return clean JSON
+    # 5. Return JSON
     return {
         "category_name": category.name,
         "products": [
@@ -149,4 +155,4 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
             }
             for p in products
         ]
-    }    
+    }
