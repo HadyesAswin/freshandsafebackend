@@ -51,3 +51,17 @@ class Coupon(CouponBase):
     products: List[CouponProductOut] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- Coupon Validation Schemas ---
+
+class CouponValidateRequest(BaseModel):
+    code: str
+    subtotal: float
+    product_ids: List[int]
+    user_id: Optional[int] = None
+
+
+class CouponValidateResponse(BaseModel):
+    valid: bool
+    discount: float
+    message: str
