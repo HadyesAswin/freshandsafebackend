@@ -16,17 +16,26 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    
-    role = Column(PgEnum(UserRole), default=UserRole.CUSTOMER, nullable=False)
+
+    email = Column(String, unique=True, index=True, nullable=True)
+    phone = Column(String, unique=True, index=True, nullable=False)
+
+    hashed_password = Column(String, nullable=True)
+
+    role = Column(
+        PgEnum(UserRole, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=UserRole.CUSTOMER,
+        nullable=False
+    )
 
     reset_otp = Column(String, nullable=True)
     reset_otp_expires_at = Column(DateTime, nullable=True)
-    
+
     is_active = Column(Boolean(), default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 
 
 
