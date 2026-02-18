@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // --- Interfaces ---
 interface Product {
@@ -109,6 +110,7 @@ const MapPinIcon = () => (
 );
 
 export default function Home() {
+  const router = useRouter(); 
   const [showModal, setShowModal] = useState(false);
   const [zipcode, setZipcode] = useState("");
   const [savedZipcode, setSavedZipcode] = useState<string | null>(null);
@@ -120,15 +122,47 @@ export default function Home() {
   // Carousel State
   const [currentBanner, setCurrentBanner] = useState(0);
 
-  // 1. Load Zipcode
+  // ================= OTP AUTH STATE =================
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"phone" | "otp" | "register">("phone");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
+
+  // Load user from localStorage on page load
   useEffect(() => {
-    const storedZip = localStorage.getItem("zipcode");
-    if (!storedZip) {
-      setShowModal(true);
-    } else {
-      setSavedZipcode(storedZip);
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
   }, []);
+
+  // Load saved zipcode on page load
+useEffect(() => {
+  const storedZip = localStorage.getItem("zipcode");
+  if (storedZip) {
+    setSavedZipcode(storedZip);
+  } else {
+    setShowModal(true);
+  }
+}, []);
+
+  // 1. Load Zipcode
+  // useEffect(() => {
+  //   const storedUser = localStorage.getItem("user");
+  //   const storedToken = localStorage.getItem("token");
+
+  //   if (storedUser && storedToken) {
+  //     setUser(JSON.parse(storedUser));
+  //   } else {
+  //     setUser(null);
+  //   }
+  // }, []);
 
   // 2. Fetch Data
   useEffect(() => {
@@ -169,6 +203,78 @@ export default function Home() {
   };
 
   const hasNoProducts = data && data.valid_location === false;
+  const sendOTP = async () => {
+  if (phone.length < 10) return;
+
+  setAuthLoading(true);
+
+  const res = await fetch("http://localhost:8000/api/v1/otp/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+
+  setAuthLoading(false);
+
+  if (res.ok) {
+    setStep("otp");
+  } else {
+    alert("Error sending OTP");
+  }
+};
+
+const verifyOTP = async (withProfile = false) => {
+  setAuthLoading(true);
+
+  const res = await fetch("http://localhost:8000/api/v1/otp/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(
+      withProfile
+        ? { phone, otp, name, email }
+        : { phone, otp }
+    ),
+  });
+
+  const data = await res.json();
+  setAuthLoading(false);
+
+  if (!res.ok) {
+    alert(data.detail);
+    return;
+  }
+
+  if (!data.user.name || !data.user.email) {
+    setStep("register");
+    return;
+  }
+
+  localStorage.setItem("token", data.access_token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+  setUser(data.user);
+  setShowAuthModal(false);
+};
+
+const completeProfile = async () => {
+  const res = await fetch("http://localhost:8000/api/v1/otp/complete-profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, name, email }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.detail);
+    return;
+  }
+
+  localStorage.setItem("user", JSON.stringify(data.user));
+  setUser(data.user);
+  setShowAuthModal(false);
+};
+
+
 
   return (
     <main className="min-h-screen bg-gray-50 font-sans">
@@ -225,24 +331,40 @@ export default function Home() {
 
             {/* Icons & Location */}
             <div className="flex items-center gap-4 lg:gap-6">
-                {/* Location Picker */}
-                <button 
-                    onClick={() => setShowModal(true)}
-                    className="flex flex-col items-end text-right group cursor-pointer"
-                >
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Delivering to</span>
-                    <div className="flex items-center gap-1 text-sm font-bold text-gray-800 group-hover:text-green-600 transition-colors">
-                        <MapPinIcon />
-                        {savedZipcode || "Select Location"}
-                    </div>
-                </button>
+              {/* Location Picker */}
+              <button 
+                  onClick={() => setShowModal(true)}
+                  className="flex flex-col items-end text-right group cursor-pointer"
+              >
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Delivering to</span>
+                  <div className="flex items-center gap-1 text-sm font-bold text-gray-800 group-hover:text-green-600 transition-colors">
+                      <MapPinIcon />
+                      {savedZipcode || "Select Location"}
+                  </div>
+              </button>
 
-                <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+              <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
 
-                <Link href="/profile" className="text-gray-600 hover:text-green-600 transition-transform active:scale-95"><UserIcon /></Link>
-                <Link href="/user/cart" className="text-gray-600 hover:text-green-600 transition-transform active:scale-95"><CartIcon /></Link>
+              {/* User Icon */}
+              <button
+                onClick={() => {
+                  if (user) {
+                    router.push("/user/account");  // 👈 redirects to account page
+                  } else {
+                    setShowAuthModal(true);
+                  }
+                }}
+                className="text-gray-600 hover:text-green-600 transition-transform active:scale-95"
+              >
+                <UserIcon />
+              </button>
+
+              <Link href="/user/cart" className="text-gray-600 hover:text-green-600 transition-transform active:scale-95">
+                <CartIcon />
+              </Link>
             </div>
-        </div>
+          </div>
+
       </header>
 
       {/* --- LOADING STATE --- */}
@@ -365,6 +487,150 @@ export default function Home() {
             </div>
         </>
       )}
+
+      {/* ================= OTP MODAL ================= */}
+{showAuthModal && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
+    <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
+
+      <button
+        onClick={() => {
+          setShowAuthModal(false);
+          setStep("phone");
+        }}
+        className="absolute top-4 right-4 text-gray-400"
+      >
+        ✕
+      </button>
+
+      {step === "phone" && (
+        <>
+          <h2 className="text-xl font-bold mb-4">Enter Mobile Number</h2>
+          <input
+            type="text"
+            value={phone}
+            maxLength={10}
+            onChange={(e) =>
+              setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+            }
+            className="w-full border rounded-lg px-4 py-2 mb-4"
+          />
+          <button
+            onClick={sendOTP}
+            className="w-full py-2 bg-green-600 text-white rounded-lg"
+          >
+            {authLoading ? "Sending..." : "Send OTP"}
+          </button>
+        </>
+      )}
+
+      {step === "otp" && (
+        <>
+          <h2 className="text-xl font-bold mb-4">Enter OTP</h2>
+          <input
+            type="text"
+            value={otp}
+            maxLength={4}
+            onChange={(e) =>
+              setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            className="w-full border rounded-lg px-4 py-2 mb-4 text-center"
+          />
+          <button
+            onClick={verifyOTP}
+            className="w-full py-2 bg-green-600 text-white rounded-lg"
+          >
+            {authLoading ? "Verifying..." : "Verify OTP"}
+          </button>
+        </>
+      )}
+
+
+      {step === "register" && (
+        <>
+          <h2 className="text-xl font-bold mb-4">Complete Profile</h2>
+          <input
+            type="text"
+            placeholder="Your Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border rounded-lg px-4 py-2 mb-3"
+          />
+          <input
+            type="email"
+            placeholder="Your Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border rounded-lg px-4 py-2 mb-4"
+          />
+          <button
+            onClick={completeProfile}
+            className="w-full py-2 bg-green-600 text-white rounded-lg"
+          >
+            Save & Continue
+          </button>
+        </>
+      )}
+
+    </div>
+  </div>
+)}
+
+
+{/* ================= PROFILE MODAL ================= */}
+{showProfileModal && user && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
+    <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
+
+      <button
+        onClick={() => setShowProfileModal(false)}
+        className="absolute top-4 right-4 text-gray-400"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-bold mb-6">My Profile</h2>
+
+      <div className="space-y-4 text-sm">
+        <div>
+          <span className="text-gray-400">Name</span>
+          <div className="font-semibold">
+            {user.name || "Not provided"}
+          </div>
+        </div>
+
+        <div>
+          <span className="text-gray-400">Phone</span>
+          <div className="font-semibold">
+            {user.phone}
+          </div>
+        </div>
+
+        <div>
+          <span className="text-gray-400">Email</span>
+          <div className="font-semibold">
+            {user.email || "Not provided"}
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={() => {
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          setUser(null);
+          setShowProfileModal(false);
+        }}
+        className="w-full mt-6 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600"
+      >
+        Logout
+      </button>
+
+    </div>
+  </div>
+)}
+
+
 
       {/* --- 6. FOOTER --- */}
       <footer className="bg-slate-900 text-slate-300 py-12 mt-20">
