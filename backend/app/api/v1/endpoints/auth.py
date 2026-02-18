@@ -29,7 +29,12 @@ def login_access_token(
     OAuth2 compatible token login, get an access token for future requests
     """
     user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not security.verify_password(form_data.password, user.hashed_password):
+    if (
+        not user
+        or not user.hashed_password
+        or not security.verify_password(form_data.password, user.hashed_password)
+    ):
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Incorrect email or password"
