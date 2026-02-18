@@ -127,8 +127,6 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
 # =====================================================
 # PRODUCTS BY CATEGORY (Location Aware)
 # =====================================================
-@router.get("/category/{slug}")
-def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_db)):
 
     # 1. Validate Zipcode
 @router.get("/category/{slug}")
@@ -253,4 +251,4 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
         "unit": product.unit,
         "category": product.category.name
     }
-    }
+    
