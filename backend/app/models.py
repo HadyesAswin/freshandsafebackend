@@ -363,3 +363,20 @@ class Zipcode(Base):
     zipcode = Column(String, unique=True, index=True, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
+
+
+class Testimonial(Base):
+    __tablename__ = "testimonials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    photo = Column(String, nullable=True)   # Image URL or file path
+    name = Column(String, nullable=False)   # Person's name
+    description = Column(Text, nullable=False)  # Testimonial content
+    place = Column(String, nullable=True)   # City / Location
+    
+    display_order = Column(Integer, default=0)
+    status = Column(Boolean, default=True)  # Active / Inactive
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

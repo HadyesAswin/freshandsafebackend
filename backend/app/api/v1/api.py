@@ -19,6 +19,7 @@ from app.api.v1.endpoints.outlet import outletviewproduct
 from app.api.v1.endpoints import location_products
 from app.api.v1.endpoints import public_coupons
 from app.api.v1.endpoints import otp
+from app.api.v1.endpoints import testimonials
 
 
 api_router = APIRouter()
@@ -64,3 +65,5 @@ api_router.include_router(location_products.router,prefix="/location-products",t
 api_router.include_router(public_coupons.router,prefix="/public-coupons",tags=["Public Coupons"])
 
 api_router.include_router(otp.router, prefix="/otp", tags=["OTP"])
+
+api_router.include_router(testimonials.router, prefix="/testimonials", tags=["Testimonials"])
