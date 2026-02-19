@@ -29,6 +29,7 @@ export default function AdminLayout({
   { name: "Banners", href: "/admin/banners", icon: "🖼️" },
   { name: "Products", href: "/admin/products", icon: "📦" }, 
   { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
+  { name: "Testimonials", href: "/admin/testimonials", icon: "💬" },
   { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
   { name: "News", href: "/admin/news", icon: "📰" },
   { name: "FAQs", href: "/admin/faq", icon: "❓" },
