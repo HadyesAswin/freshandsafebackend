@@ -24,6 +24,7 @@ from app.api.v1.endpoints import cart
 from app.api.v1.endpoints import admin
 from app.api.v1.endpoints import sales
 from app.api.v1.endpoints import dashboard
+from app.api.v1.endpoints import testimonials
 
 
 api_router = APIRouter()
@@ -79,3 +80,4 @@ api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 api_router.include_router(sales.router, prefix="/sales", tags=["Sales Analysis"])
 
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Admin Dashboard"])
+api_router.include_router(testimonials.router, prefix="/testimonials", tags=["Testimonials"])
