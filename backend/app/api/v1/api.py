@@ -19,6 +19,11 @@ from app.api.v1.endpoints.outlet import outletviewproduct
 from app.api.v1.endpoints import location_products
 from app.api.v1.endpoints import public_coupons
 from app.api.v1.endpoints import otp
+from app.api.v1.endpoints import orders
+from app.api.v1.endpoints import cart
+from app.api.v1.endpoints import admin
+from app.api.v1.endpoints import sales
+from app.api.v1.endpoints import dashboard
 from app.api.v1.endpoints import testimonials
 
 
@@ -66,4 +71,13 @@ api_router.include_router(public_coupons.router,prefix="/public-coupons",tags=["
 
 api_router.include_router(otp.router, prefix="/otp", tags=["OTP"])
 
+api_router.include_router(orders.router, prefix="/orders", tags=["Orders"])
+
+api_router.include_router(cart.router, prefix="/cart", tags=["Cart"])
+
+api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
+
+api_router.include_router(sales.router, prefix="/sales", tags=["Sales Analysis"])
+
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Admin Dashboard"])
 api_router.include_router(testimonials.router, prefix="/testimonials", tags=["Testimonials"])

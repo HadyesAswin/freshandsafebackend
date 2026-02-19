@@ -37,7 +37,7 @@ export default function ProductDetailsPage() {
   const [showCartModal, setShowCartModal] = useState(false);
 
   // ================================
-  // Fetch Product
+  // Fetch Product Data
   // ================================
   useEffect(() => {
     const storedZip = localStorage.getItem("zipcode");
@@ -74,22 +74,22 @@ export default function ProductDetailsPage() {
   }, [slug, router]);
 
   // ================================
-  // Add To Cart Logic
+  // ✅ FIXED: Hybrid Add To Cart Logic
   // ================================
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
 
+    // 1. CRITICAL: Always get the FRESH local cart right now.
+    // This ensures we don't use an old version that still has removed items.
     const existingCart = localStorage.getItem("cart");
-    let cart: CartItem[] = existingCart ? JSON.parse(existingCart) : [];
+    let currentCart: CartItem[] = existingCart ? JSON.parse(existingCart) : [];
 
-    const existingProductIndex = cart.findIndex(
-      (item) => item.id === product.id
-    );
+    const existingProductIndex = currentCart.findIndex((item) => item.id === product.id);
 
     if (existingProductIndex > -1) {
-      cart[existingProductIndex].quantity += quantity;
+      currentCart[existingProductIndex].quantity += quantity;
     } else {
-      cart.push({
+      currentCart.push({
         id: product.id,
         name: product.name,
         price: product.price,
@@ -98,40 +98,57 @@ export default function ProductDetailsPage() {
       });
     }
 
-    localStorage.setItem("cart", JSON.stringify(cart));
+    // 2. Save the cleaned/updated cart back to localStorage immediately
+    localStorage.setItem("cart", JSON.stringify(currentCart));
+
+    // 3. Sync with Database if user is logged in
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      try {
+        await fetch("http://localhost:8000/api/v1/cart/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            // Syncing the full cleaned list ensures the DB is an exact match
+            items: currentCart.map((i) => ({ 
+                product_id: i.id, 
+                quantity: i.quantity 
+            })),
+          }),
+        });
+      } catch (error) {
+        console.error("Database sync failed:", error);
+      }
+    }
 
     setQuantity(1);
-    setShowCartModal(true); // Show modal instead of alert
+    setShowCartModal(true);
   };
 
-  // ================================
-  // Loading State
-  // ================================
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center text-gray-500">
-        Loading product...
+      <div className="h-screen flex items-center justify-center text-gray-500 font-bold">
+        Loading product details...
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="h-screen flex items-center justify-center text-gray-500">
+      <div className="h-screen flex items-center justify-center text-gray-500 font-bold">
         Product not found.
       </div>
     );
   }
 
-  const totalPrice = product.price * quantity;
-  const totalOriginalPrice = product.original_price
-    ? product.original_price * quantity
-    : null;
+  const sellingPrice = product.price;
+  const totalPrice = sellingPrice * quantity;
+  const strikethroughPrice = product.original_price || product.compare_price;
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20">
-
-      {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="text-2xl font-extrabold text-green-600">
@@ -146,137 +163,118 @@ export default function ProductDetailsPage() {
         </div>
       </header>
 
-      {/* Product Content */}
       <div className="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-2 gap-12">
-
-        {/* Image */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
+        {/* Product Image */}
+        <div className="bg-white rounded-3xl p-8 shadow-sm border flex items-center justify-center">
           {product.image ? (
             <img
               src={`http://localhost:8000${product.image}`}
               alt={product.name}
-              className="w-full h-[400px] object-contain"
+              className="w-full h-auto max-h-[450px] object-contain hover:scale-105 transition-transform duration-500"
             />
           ) : (
-            <div className="h-[400px] flex items-center justify-center text-gray-300">
+            <div className="h-[400px] flex items-center justify-center text-gray-300 font-bold uppercase tracking-widest">
               No Image
             </div>
           )}
         </div>
 
-        {/* Details */}
-        <div>
-
+        {/* Product Details */}
+        <div className="flex flex-col justify-center">
           {product.category && (
-            <p className="text-sm text-gray-500 mb-2 capitalize">
-              Category: {product.category}
-            </p>
+            <span className="text-xs font-black text-green-600 bg-green-50 px-3 py-1 rounded-full w-fit mb-4 uppercase tracking-widest border border-green-100">
+              {product.category}
+            </span>
           )}
 
-          <h1 className="text-4xl font-black text-slate-800 mb-4">
+          <h1 className="text-4xl md:text-5xl font-black text-slate-800 mb-4 leading-tight">
             {product.name}
           </h1>
 
           {product.description && (
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-500 text-lg mb-8 leading-relaxed">
               {product.description}
             </p>
           )}
 
-          {/* Price */}
-          <div className="mb-6">
-            <div className="text-3xl font-black text-green-700">
-              ₹{totalPrice}
+          <div className="mb-8">
+            <div className="flex items-baseline gap-4">
+              <span className="text-4xl font-black text-green-700">₹{sellingPrice}</span>
+              {strikethroughPrice && (
+                <span className="text-xl text-gray-300 line-through font-bold">
+                  ₹{strikethroughPrice}
+                </span>
+              )}
             </div>
-
-            {totalOriginalPrice && (
-              <div className="text-lg text-gray-400 line-through">
-                ₹{totalOriginalPrice}
-              </div>
-            )}
-
-            {product.compare_price && (
-              <div className="text-sm text-gray-500">
-                MRP: ₹{product.compare_price}
-              </div>
-            )}
+            <p className="text-xs text-gray-400 mt-1 font-bold">Inclusive of all taxes</p>
           </div>
 
-          {/* Quantity Selector */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="flex items-center border rounded-lg overflow-hidden">
-              <button
-                onClick={() =>
-                  setQuantity((prev) => Math.max(1, prev - 1))
-                }
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-lg font-bold"
-              >
-                -
-              </button>
-
-              <div className="px-6 py-2 font-bold text-lg">
-                {quantity}
+          <div className="bg-white p-6 rounded-2xl border shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+                <button
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  className="px-5 py-3 hover:bg-white text-xl font-black transition-colors"
+                >
+                  -
+                </button>
+                <div className="px-6 py-3 font-black text-xl w-16 text-center">
+                  {quantity}
+                </div>
+                <button
+                  onClick={() => setQuantity((prev) => prev + 1)}
+                  className="px-5 py-3 hover:bg-white text-xl font-black transition-colors"
+                >
+                  +
+                </button>
               </div>
 
-              <button
-                onClick={() =>
-                  setQuantity((prev) => prev + 1)
-                }
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-lg font-bold"
-              >
-                +
-              </button>
+              <div className="text-right">
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Subtotal</p>
+                <p className="text-2xl font-black text-slate-800">₹{totalPrice}</p>
+              </div>
             </div>
 
-            <div className="text-sm text-gray-500">
-              Total: ₹{totalPrice}
-            </div>
+            <button
+              onClick={handleAddToCart}
+              className="w-full py-4 bg-green-600 text-white font-black text-lg rounded-xl hover:bg-green-700 active:scale-95 transition-all shadow-xl shadow-green-100"
+            >
+              Add to Cart
+            </button>
           </div>
-
-          {/* Add To Cart */}
-          <button
-            onClick={handleAddToCart}
-            className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:scale-95 transition-all shadow-lg"
-          >
-            Add to Cart
-          </button>
-
         </div>
       </div>
 
-      {/* ================================
-          Cart Modal
-         ================================ */}
+      {/* Success Modal */}
       {showCartModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 w-[90%] max-w-md shadow-2xl text-center">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl p-10 w-full max-w-sm shadow-2xl text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 mb-2">Added to Cart!</h2>
+            <p className="text-gray-500 mb-8 font-medium">Your selection has been updated.</p>
 
-            <h2 className="text-xl font-bold text-green-600 mb-6">
-              🛒 Item added to cart
-            </h2>
-
-            <div className="flex flex-col gap-4">
-
+            <div className="flex flex-col gap-3">
               <button
                 onClick={() => router.push("/user/cart")}
-                className="py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition"
+                className="py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg"
               >
-                Checkout
+                Go to Cart & Checkout
               </button>
 
               <button
-                onClick={() => router.back()}
-                className="py-3 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 transition"
+                onClick={() => setShowCartModal(false)}
+                className="py-3 bg-white text-gray-500 font-bold rounded-xl hover:bg-gray-50 transition border border-gray-100"
               >
-                Continue Browsing
+                Keep Shopping
               </button>
-
             </div>
-
           </div>
         </div>
       )}
-
     </main>
   );
 }

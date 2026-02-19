@@ -11,6 +11,7 @@ interface Product {
   price: number;
   original_price?: number;
   image?: string;
+  slug: string; // ✅ Added slug here
 }
 
 interface Category {
@@ -143,26 +144,14 @@ export default function Home() {
   }, []);
 
   // Load saved zipcode on page load
-useEffect(() => {
-  const storedZip = localStorage.getItem("zipcode");
-  if (storedZip) {
-    setSavedZipcode(storedZip);
-  } else {
-    setShowModal(true);
-  }
-}, []);
-
-  // 1. Load Zipcode
-  // useEffect(() => {
-  //   const storedUser = localStorage.getItem("user");
-  //   const storedToken = localStorage.getItem("token");
-
-  //   if (storedUser && storedToken) {
-  //     setUser(JSON.parse(storedUser));
-  //   } else {
-  //     setUser(null);
-  //   }
-  // }, []);
+  useEffect(() => {
+    const storedZip = localStorage.getItem("zipcode");
+    if (storedZip) {
+      setSavedZipcode(storedZip);
+    } else {
+      setShowModal(true);
+    }
+  }, []);
 
   // 2. Fetch Data
   useEffect(() => {
@@ -203,78 +192,67 @@ useEffect(() => {
   };
 
   const hasNoProducts = data && data.valid_location === false;
+  
   const sendOTP = async () => {
-  if (phone.length < 10) return;
+    if (phone.length < 10) return;
+    setAuthLoading(true);
+    const res = await fetch("http://localhost:8000/api/v1/otp/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    setAuthLoading(false);
+    if (res.ok) {
+      setStep("otp");
+    } else {
+      alert("Error sending OTP");
+    }
+  };
 
-  setAuthLoading(true);
+  const verifyOTP = async (withProfile = false) => {
+    setAuthLoading(true);
+    const res = await fetch("http://localhost:8000/api/v1/otp/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        withProfile
+          ? { phone, otp, name, email }
+          : { phone, otp }
+      ),
+    });
+    const data = await res.json();
+    setAuthLoading(false);
 
-  const res = await fetch("http://localhost:8000/api/v1/otp/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
-  });
+    if (!res.ok) {
+      alert(data.detail);
+      return;
+    }
+    if (!data.user.name || !data.user.email) {
+      setStep("register");
+      return;
+    }
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    setUser(data.user);
+    setShowAuthModal(false);
+  };
 
-  setAuthLoading(false);
+  const completeProfile = async () => {
+    const res = await fetch("http://localhost:8000/api/v1/otp/complete-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, name, email }),
+    });
+    const data = await res.json();
 
-  if (res.ok) {
-    setStep("otp");
-  } else {
-    alert("Error sending OTP");
-  }
-};
-
-const verifyOTP = async (withProfile = false) => {
-  setAuthLoading(true);
-
-  const res = await fetch("http://localhost:8000/api/v1/otp/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      withProfile
-        ? { phone, otp, name, email }
-        : { phone, otp }
-    ),
-  });
-
-  const data = await res.json();
-  setAuthLoading(false);
-
-  if (!res.ok) {
-    alert(data.detail);
-    return;
-  }
-
-  if (!data.user.name || !data.user.email) {
-    setStep("register");
-    return;
-  }
-
-  localStorage.setItem("token", data.access_token);
-  localStorage.setItem("user", JSON.stringify(data.user));
-  setUser(data.user);
-  setShowAuthModal(false);
-};
-
-const completeProfile = async () => {
-  const res = await fetch("http://localhost:8000/api/v1/otp/complete-profile", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, name, email }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    alert(data.detail);
-    return;
-  }
-
-  localStorage.setItem("user", JSON.stringify(data.user));
-  setUser(data.user);
-  setShowAuthModal(false);
-};
-
-
+    if (!res.ok) {
+      alert(data.detail);
+      return;
+    }
+    localStorage.setItem("user", JSON.stringify(data.user));
+    setUser(data.user);
+    setShowAuthModal(false);
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 font-sans">
@@ -349,7 +327,7 @@ const completeProfile = async () => {
               <button
                 onClick={() => {
                   if (user) {
-                    router.push("/user/account");  // 👈 redirects to account page
+                    router.push("/user/account");
                   } else {
                     setShowAuthModal(true);
                   }
@@ -364,7 +342,6 @@ const completeProfile = async () => {
               </Link>
             </div>
           </div>
-
       </header>
 
       {/* --- LOADING STATE --- */}
@@ -429,7 +406,6 @@ const completeProfile = async () => {
                             Shop By Category
                         </h2>
                         
-                        {/* Removed limit/slice: Shows ALL categories */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             {data.categories.map((cat) => (
                                 <Link key={cat.id} href={`/user/categories/${cat.slug}`} className="group bg-white p-4 rounded-xl border border-gray-100 hover:shadow-lg hover:border-green-200 transition-all text-center">
@@ -445,7 +421,7 @@ const completeProfile = async () => {
                     </section>
                 )}
 
-                {/* --- 5. DEAL OF THE DAY (Max 4 + Header Link) --- */}
+                {/* --- 5. DEAL OF THE DAY (✅ UPDATED LINKING) --- */}
                 {!hasNoProducts && data.daily_deals.length > 0 && (
                     <section>
                         <div className="flex justify-between items-end mb-6">
@@ -458,26 +434,38 @@ const completeProfile = async () => {
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            {/* Slice to show only first 4 */}
                             {data.daily_deals.slice(0, 4).map((product) => (
-                                <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all group">
-                                    <div className="relative h-40 bg-gray-50 overflow-hidden">
+                                <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all group flex flex-col">
+                                    
+                                    {/* ✅ Clickable Image Link */}
+                                    <Link href={`/user/product/${product.slug}`} className="relative h-40 bg-gray-50 overflow-hidden block">
                                         {product.image && (
                                             <img src={`http://localhost:8000${product.image}`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                                         )}
-                                        <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                        <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full z-10">
                                             OFFER
                                         </span>
-                                    </div>
-                                    <div className="p-4">
-                                        <h3 className="font-bold text-gray-800 truncate mb-1">{product.name}</h3>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-lg font-black text-red-600">₹{product.price}</span>
-                                            {product.original_price && <span className="text-xs text-gray-400 line-through">₹{product.original_price}</span>}
+                                    </Link>
+                                    
+                                    <div className="p-4 flex flex-col flex-1 justify-between">
+                                        <div>
+                                            {/* ✅ Clickable Title Link */}
+                                            <Link href={`/user/product/${product.slug}`}>
+                                                <h3 className="font-bold text-gray-800 truncate mb-1 hover:text-green-600 transition-colors">{product.name}</h3>
+                                            </Link>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-lg font-black text-red-600">₹{product.price}</span>
+                                                {product.original_price && <span className="text-xs text-gray-400 line-through">₹{product.original_price}</span>}
+                                            </div>
                                         </div>
-                                        <button className="w-full mt-3 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 active:scale-95 transition-all">
-                                            Add
-                                        </button>
+                                        
+                                        {/* ✅ Changed button to Next.js Link pointing to product page */}
+                                        <Link 
+                                            href={`/user/product/${product.slug}`} 
+                                            className="block text-center w-full mt-3 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 active:scale-95 transition-all"
+                                        >
+                                            View & Add
+                                        </Link>
                                     </div>
                                 </div>
                             ))}
@@ -489,148 +477,135 @@ const completeProfile = async () => {
       )}
 
       {/* ================= OTP MODAL ================= */}
-{showAuthModal && (
-  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
-    <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
+          <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
+            <button
+              onClick={() => {
+                setShowAuthModal(false);
+                setStep("phone");
+              }}
+              className="absolute top-4 right-4 text-gray-400"
+            >
+              ✕
+            </button>
 
-      <button
-        onClick={() => {
-          setShowAuthModal(false);
-          setStep("phone");
-        }}
-        className="absolute top-4 right-4 text-gray-400"
-      >
-        ✕
-      </button>
+            {step === "phone" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Enter Mobile Number</h2>
+                <input
+                  type="text"
+                  value={phone}
+                  maxLength={10}
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+                  }
+                  className="w-full border rounded-lg px-4 py-2 mb-4"
+                />
+                <button
+                  onClick={sendOTP}
+                  className="w-full py-2 bg-green-600 text-white rounded-lg"
+                >
+                  {authLoading ? "Sending..." : "Send OTP"}
+                </button>
+              </>
+            )}
 
-      {step === "phone" && (
-        <>
-          <h2 className="text-xl font-bold mb-4">Enter Mobile Number</h2>
-          <input
-            type="text"
-            value={phone}
-            maxLength={10}
-            onChange={(e) =>
-              setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-            }
-            className="w-full border rounded-lg px-4 py-2 mb-4"
-          />
-          <button
-            onClick={sendOTP}
-            className="w-full py-2 bg-green-600 text-white rounded-lg"
-          >
-            {authLoading ? "Sending..." : "Send OTP"}
-          </button>
-        </>
-      )}
+            {step === "otp" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Enter OTP</h2>
+                <input
+                  type="text"
+                  value={otp}
+                  maxLength={4}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  className="w-full border rounded-lg px-4 py-2 mb-4 text-center"
+                />
+                <button
+                  onClick={verifyOTP}
+                  className="w-full py-2 bg-green-600 text-white rounded-lg"
+                >
+                  {authLoading ? "Verifying..." : "Verify OTP"}
+                </button>
+              </>
+            )}
 
-      {step === "otp" && (
-        <>
-          <h2 className="text-xl font-bold mb-4">Enter OTP</h2>
-          <input
-            type="text"
-            value={otp}
-            maxLength={4}
-            onChange={(e) =>
-              setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
-            }
-            className="w-full border rounded-lg px-4 py-2 mb-4 text-center"
-          />
-          <button
-            onClick={verifyOTP}
-            className="w-full py-2 bg-green-600 text-white rounded-lg"
-          >
-            {authLoading ? "Verifying..." : "Verify OTP"}
-          </button>
-        </>
-      )}
-
-
-      {step === "register" && (
-        <>
-          <h2 className="text-xl font-bold mb-4">Complete Profile</h2>
-          <input
-            type="text"
-            placeholder="Your Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border rounded-lg px-4 py-2 mb-3"
-          />
-          <input
-            type="email"
-            placeholder="Your Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border rounded-lg px-4 py-2 mb-4"
-          />
-          <button
-            onClick={completeProfile}
-            className="w-full py-2 bg-green-600 text-white rounded-lg"
-          >
-            Save & Continue
-          </button>
-        </>
-      )}
-
-    </div>
-  </div>
-)}
-
-
-{/* ================= PROFILE MODAL ================= */}
-{showProfileModal && user && (
-  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
-    <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
-
-      <button
-        onClick={() => setShowProfileModal(false)}
-        className="absolute top-4 right-4 text-gray-400"
-      >
-        ✕
-      </button>
-
-      <h2 className="text-xl font-bold mb-6">My Profile</h2>
-
-      <div className="space-y-4 text-sm">
-        <div>
-          <span className="text-gray-400">Name</span>
-          <div className="font-semibold">
-            {user.name || "Not provided"}
+            {step === "register" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Complete Profile</h2>
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full border rounded-lg px-4 py-2 mb-3"
+                />
+                <input
+                  type="email"
+                  placeholder="Your Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border rounded-lg px-4 py-2 mb-4"
+                />
+                <button
+                  onClick={completeProfile}
+                  className="w-full py-2 bg-green-600 text-white rounded-lg"
+                >
+                  Save & Continue
+                </button>
+              </>
+            )}
           </div>
         </div>
+      )}
 
-        <div>
-          <span className="text-gray-400">Phone</span>
-          <div className="font-semibold">
-            {user.phone}
+      {/* ================= PROFILE MODAL ================= */}
+      {showProfileModal && user && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
+          <div className="bg-white p-8 rounded-2xl w-96 relative shadow-2xl">
+            <button
+              onClick={() => setShowProfileModal(false)}
+              className="absolute top-4 right-4 text-gray-400"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold mb-6">My Profile</h2>
+            <div className="space-y-4 text-sm">
+              <div>
+                <span className="text-gray-400">Name</span>
+                <div className="font-semibold">
+                  {user.name || "Not provided"}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400">Phone</span>
+                <div className="font-semibold">
+                  {user.phone}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400">Email</span>
+                <div className="font-semibold">
+                  {user.email || "Not provided"}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                setUser(null);
+                setShowProfileModal(false);
+              }}
+              className="w-full mt-6 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600"
+            >
+              Logout
+            </button>
           </div>
         </div>
-
-        <div>
-          <span className="text-gray-400">Email</span>
-          <div className="font-semibold">
-            {user.email || "Not provided"}
-          </div>
-        </div>
-      </div>
-
-      <button
-        onClick={() => {
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-          setUser(null);
-          setShowProfileModal(false);
-        }}
-        className="w-full mt-6 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600"
-      >
-        Logout
-      </button>
-
-    </div>
-  </div>
-)}
-
-
+      )}
 
       {/* --- 6. FOOTER --- */}
       <footer className="bg-slate-900 text-slate-300 py-12 mt-20">
