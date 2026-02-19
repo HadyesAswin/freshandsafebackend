@@ -12,47 +12,44 @@ export default function AdminLayout({
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Logout Function
   const handleLogout = () => {
-    // 1. Clear Token
     localStorage.removeItem("token");
-    // 2. Redirect to Login
     router.push("/login");
   };
 
-  // Navigation Links
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: "🏠" },
     { name: "Outlets", href: "/admin/outlets", icon: "🏪" },
     { name: "Categories", href: "/admin/categories", icon: "📁" },
-  { name: "Certificates", href: "/admin/certificates", icon: "📜" }, // ✅ NEW
-  { name: "Banners", href: "/admin/banners", icon: "🖼️" },
-  { name: "Products", href: "/admin/products", icon: "📦" }, 
-  { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
-  { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
-  { name: "News", href: "/admin/news", icon: "📰" },
-  { name: "FAQs", href: "/admin/faq", icon: "❓" },
-  { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
-  { name: "Marquee", href: "/admin/marquee", icon: "🏃" }, 
-  { name: "Contact Us", href: "/admin/contact", icon: "📞" },
-  { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
-  { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
-  { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
-    { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
-    { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
+    { name: "Certificates", href: "/admin/certificates", icon: "📜" },
+    { name: "Banners", href: "/admin/banners", icon: "🖼️" },
+    { name: "Products", href: "/admin/products", icon: "📦" },
+    { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
+    { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
+    { name: "News", href: "/admin/news", icon: "📰" },
+    { name: "FAQs", href: "/admin/faq", icon: "❓" },
+    { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+    { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
+    { name: "Contact Us", href: "/admin/contact", icon: "📞" },
+    { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
+    { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
+    { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
+    { name: "Users", href: "/admin/users", icon: "👥" },
+    { name: "Sales Overview", href: "/admin/sales", icon: "📊" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
       {/* --- SIDEBAR --- */}
-      <aside 
-        className={`bg-slate-800 text-white w-64 min-h-screen flex-shrink-0 transition-all duration-300 ${
+      <aside
+        className={`bg-slate-800 text-white w-64 h-screen flex flex-col transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64"
         } fixed md:relative z-10`}
       >
-        <div className="p-4 flex justify-between items-center border-b border-slate-700">
+        {/* Header - Stays Fixed at Top */}
+        <div className="p-4 flex justify-between items-center border-b border-slate-700 flex-shrink-0">
           <h1 className="text-xl font-bold text-green-400">FreshAdmin</h1>
-          <button 
+          <button
             className="md:hidden text-gray-400 hover:text-white"
             onClick={() => setIsSidebarOpen(false)}
           >
@@ -60,7 +57,8 @@ export default function AdminLayout({
           </button>
         </div>
 
-        <nav className="mt-6 px-2 space-y-2">
+        {/* Navigation - ✅ THIS SECTION IS NOW SCROLLABLE */}
+        <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-2 custom-scrollbar">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -80,8 +78,8 @@ export default function AdminLayout({
           })}
         </nav>
 
-        {/* LOGOUT BUTTON (Bottom) */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-slate-700 bg-slate-800">
+        {/* Logout Button - Stays Fixed at Bottom */}
+        <div className="p-4 border-t border-slate-700 bg-slate-800 flex-shrink-0">
           <button
             onClick={handleLogout}
             className="flex items-center w-full px-4 py-3 text-red-400 hover:bg-slate-700 hover:text-red-300 rounded-md transition-colors"
@@ -93,10 +91,10 @@ export default function AdminLayout({
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        {/* Mobile Header (Hamburger) */}
-        <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center">
-          <button 
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Mobile Header */}
+        <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center flex-shrink-0">
+          <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="text-gray-600 p-2 rounded hover:bg-gray-100"
           >
@@ -110,6 +108,23 @@ export default function AdminLayout({
           {children}
         </div>
       </main>
+
+      {/* CSS to make scrollbar look better (Optional) */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #475569;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #10b981;
+        }
+      `}</style>
     </div>
   );
 }

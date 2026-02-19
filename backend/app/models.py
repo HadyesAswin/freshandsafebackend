@@ -363,3 +363,162 @@ class Zipcode(Base):
     zipcode = Column(String, unique=True, index=True, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
+
+
+class OrderStatus(str, enum.Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    PREPARING = "preparing"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    FAILED = "failed"
+
+class PaymentMethod(str, enum.Enum):
+    ONLINE = "online"
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String, unique=True, index=True, nullable=False)
+
+    # Relationships (Who ordered it, and from which shop?)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True) # Nullable for guest checkout
+    outlet_id = Column(Integer, ForeignKey("outlets.id"), nullable=False, index=True)
+
+    # Customer Info Snapshot
+    customer_name = Column(String, nullable=False)
+    customer_phone = Column(String, nullable=False)
+    customer_email = Column(String, nullable=True)
+
+    # Delivery Info Snapshot
+    delivery_name = Column(String, nullable=False)
+    delivery_phone = Column(String, nullable=False)
+    delivery_address_line1 = Column(String, nullable=False)
+    delivery_address_line2 = Column(String, nullable=True)
+    delivery_city = Column(String, nullable=False)
+    delivery_state = Column(String, nullable=False)
+    delivery_zipcode = Column(String, nullable=False)
+    
+    # Coordinates (For QWQER later)
+    delivery_latitude = Column(Float, nullable=True)
+    delivery_longitude = Column(Float, nullable=True)
+
+    # Financials
+    subtotal = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
+    tax_amount = Column(Float, default=0.0)
+    delivery_fee = Column(Float, default=0.0)
+    total_amount = Column(Float, nullable=False)
+
+    # Meta
+    coupon_code = Column(String, nullable=True)
+    
+    order_status = Column(
+        PgEnum(OrderStatus, values_callable=lambda obj: [e.value for e in obj]), 
+        default=OrderStatus.PENDING
+    )
+    payment_status = Column(
+        PgEnum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj]), 
+        default=PaymentStatus.PENDING
+    )
+    payment_method = Column(String, default=PaymentMethod.ONLINE)
+    
+    customer_note = Column(Text, nullable=True)
+
+    # QWQER Integration Fields (Ready for later)
+    qwqer_order_id = Column(String, nullable=True)
+    qwqer_status = Column(String, nullable=True)
+    qwqer_tracking_url = Column(String, nullable=True)
+    qwqer_driver_name = Column(String, nullable=True)
+    qwqer_driver_phone = Column(String, nullable=True)
+    qwqer_assigned_at = Column(DateTime, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    user = relationship("User", backref="orders")
+    outlet = relationship("Outlet", backref="orders")
+    
+    # One Order -> Many Items
+    order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+
+    quantity = Column(Integer, nullable=False)
+    price_per_unit = Column(Float, nullable=False) # MUST capture price at time of order
+    total_price = Column(Float, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    order = relationship("Order", back_populates="order_items")
+    product = relationship("Product")
+
+
+class UserAddress(Base):
+    __tablename__ = "user_addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # ✅ NEW: Contact details specific to this address
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+
+    address_line1 = Column(String, nullable=False)
+    address_line2 = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    state = Column(String, nullable=False)
+    zipcode = Column(String, nullable=False)
+    
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship back to User
+    user = relationship("User", backref="addresses")
+
+
+class Cart(Base):
+    __tablename__ = "carts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationship
+    user = relationship("User", backref="cart")
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cart_id = Column(Integer, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    
+    quantity = Column(Integer, default=1)
+
+    # Relationships
+    cart = relationship("Cart", back_populates="items")
+    product = relationship("Product")    
