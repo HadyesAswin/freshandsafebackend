@@ -1,148 +1,177 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function ShopHomePage() {
   const router = useRouter();
-  const [outletId, setOutletId] = useState<string | null>(null);
-  const [isShopOpen, setIsShopOpen] = useState(false);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch Initial Data (ID + Status)
-  useEffect(() => {
-    const storedId = localStorage.getItem("outlet_id");
+  const fetchOrders = async () => {
     const token = localStorage.getItem("outlet_token");
-    
     if (!token) {
-        router.push("/shop-login");
-        return;
+      router.push("/login");
+      return;
     }
 
-    setOutletId(storedId);
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/api/v1/outlet/orders", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        
+        console.log("📦 RAW DATA FROM BACKEND:", data);
 
-    // Fetch current status from API
-    const fetchStatus = async () => {
-        try {
-            const res = await fetch("http://localhost:8000/api/v1/outlet/profile", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setIsShopOpen(data.status); // Set toggle based on DB
-            }
-        } catch (err) {
-            console.error("Failed to fetch status");
-        } finally {
-            setLoading(false);
-        }
-    };
+        // ✅ Since Pydantic uses alias="status", we check both keys just in case
+        const activeOrders = data
+          .filter(
+            (o: any) => !["delivered", "out_for_delivery"].includes(o.order_status || o.status)
+          )
+          .sort((a: any, b: any) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          
+        setOrders(activeOrders);
+      } else {
+        console.error("❌ API Error:", res.status);
+      }
+    } catch (err) {
+      console.error("❌ Failed to fetch orders:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchStatus();
-  }, [router]);
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
-  // 2. Handle Toggle Switch
-  const toggleShopStatus = async () => {
+  const updateStatus = async (orderId: number, currentStatus: string) => {
     const token = localStorage.getItem("outlet_token");
-    const newStatus = !isShopOpen; // Flip status
+    
+    // Logic for next status transition
+    let nextStatus = "";
+    const status = currentStatus?.toLowerCase();
+    
+    if (status === "pending") nextStatus = "confirmed";
+    else if (status === "confirmed") nextStatus = "preparing";
+    else if (status === "preparing") nextStatus = "out_for_delivery";
+    else if (status === "out_for_delivery") nextStatus = "delivered";
 
-    // Optimistic UI Update (Change switch immediately)
-    setIsShopOpen(newStatus);
+    if (!nextStatus) return;
 
     try {
-        const res = await fetch("http://localhost:8000/api/v1/outlet/status", {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ status: newStatus }),
-        });
+      const res = await fetch(`http://localhost:8000/api/v1/outlet/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
 
-        if (!res.ok) {
-            throw new Error("Failed to update");
-        }
+      if (res.ok) {
+        fetchOrders(); 
+      }
     } catch (err) {
-        // Revert if API fails
-        setIsShopOpen(!newStatus);
-        alert("Failed to update shop status. Please try again.");
+      alert("Failed to update status");
+    }
+  };
+
+  // ✅ Helper to handle Button Text
+  const getButtonText = (status: string) => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case "pending": return "Accept Order";
+      case "confirmed": return "Start Preparing";
+      case "preparing": return "Ready for Delivery";
+      case "out_for_delivery": return "Mark Delivered";
+      default: return "Update Status";
+    }
+  };
+
+  // ✅ Helper for Status Badge Colors
+  const getStatusStyle = (status: string) => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case "pending": return "bg-red-100 text-red-700";
+      case "confirmed": return "bg-blue-100 text-blue-700";
+      case "preparing": return "bg-yellow-100 text-yellow-700";
+      case "out_for_delivery": return "bg-purple-100 text-purple-700";
+      default: return "bg-gray-100 text-gray-700";
     }
   };
 
   return (
-    <div>
-      {/* --- HEADER SECTION --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-            <h1 className="text-3xl font-bold text-green-700 mb-1">
-                🏪 Outlet Dashboard
-            </h1>
-            <p className="text-gray-500 text-sm">
-                Manage your store, orders, and products.
-            </p>
-        </div>
-
-        {/* --- LIVE TOGGLE SWITCH --- */}
-        {!loading && (
-            <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border shadow-sm transition-all ${isShopOpen ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-                <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Shop Status</span>
-                    <span className={`font-bold text-lg ${isShopOpen ? "text-green-700" : "text-red-600"}`}>
-                        {isShopOpen ? "● LIVE / OPEN" : "○ CLOSED"}
-                    </span>
-                </div>
-                
-                {/* Switch UI */}
-                <button 
-                    onClick={toggleShopStatus}
-                    className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none ${isShopOpen ? "bg-green-600" : "bg-gray-300"}`}
-                >
-                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isShopOpen ? "translate-x-6" : "translate-x-0"}`}></div>
-                </button>
-            </div>
-        )}
+    <div className="space-y-8 p-4 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">Active Orders</h1>
+        <button onClick={fetchOrders} className="text-sm text-blue-600 hover:underline">
+          Refresh List
+        </button>
       </div>
+      
+      <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="p-4 font-semibold text-gray-600">Order #</th>
+                <th className="p-4 font-semibold text-gray-600">Items</th>
+                <th className="p-4 font-semibold text-gray-600">Status</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-10 text-center text-gray-500">Loading...</td></tr>
+              ) : orders.map((order: any) => {
+                // ✅ Extract status from either possible key
+                const currentStatus = order.order_status || order.status;
 
-      {/* --- OUTLET INFO BAR --- */}
-      {outletId && (
-        <div className="mb-8 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-2 text-sm text-blue-800">
-            <span>🆔 Outlet ID: <strong>{outletId}</strong></span>
+                return (
+                  <tr key={order.id} className="border-b hover:bg-gray-50 transition">
+                    <td className="p-4 font-bold text-green-700">{order.order_number}</td>
+                    <td className="p-4 text-sm text-gray-600">
+                      {order.order_items?.map((i: any) => 
+                        `${i.product?.name || "Product"} (x${i.quantity})`
+                      ).join(", ")}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full uppercase font-medium ${getStatusStyle(currentStatus)}`}>
+                        {currentStatus || "Unknown"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button 
+                        onClick={() => updateStatus(order.id, currentStatus)}
+                        className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 font-medium transition"
+                      >
+                        {getButtonText(currentStatus)}
+                      </button>
+                      <Link 
+                        href={`/outlet-home/orders/${order.id}`} 
+                        className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-200"
+                      >
+                        Details
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {/* --- STATS CARDS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Products Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
-          <div className="flex justify-between items-start">
-            <div>
-                <h2 className="text-gray-500 font-medium text-sm">Total Products</h2>
-                <p className="mt-2 text-3xl font-bold text-gray-800">0</p>
-            </div>
-            <span className="text-2xl">📦</span>
+        {orders.length === 0 && !loading && (
+          <div className="p-10 text-center text-gray-500 bg-gray-50">
+            No active orders.
           </div>
-        </div>
-
-        {/* Orders Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
-          <div className="flex justify-between items-start">
-            <div>
-                <h2 className="text-gray-500 font-medium text-sm">New Orders</h2>
-                <p className="mt-2 text-3xl font-bold text-gray-800">0</p>
-            </div>
-            <span className="text-2xl">🛒</span>
-          </div>
-        </div>
-
-        {/* Revenue Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
-           <div className="flex justify-between items-start">
-            <div>
-                <h2 className="text-gray-500 font-medium text-sm">Today's Revenue</h2>
-                <p className="mt-2 text-3xl font-bold text-green-600">₹0</p>
-            </div>
-            <span className="text-2xl">💰</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

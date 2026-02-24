@@ -1,96 +1,90 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
+import json
+
 from app.core.database import get_db
+from app.core.redis_client import get_redis_client
 from app.models import Coupon, Product
 from app.schemas.coupon import CouponValidateRequest, CouponValidateResponse
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter()
+
+
 @router.post("/validate", response_model=CouponValidateResponse)
 def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
 
-    coupon = db.query(Coupon).filter(
-        Coupon.code == data.code.upper(),
-        Coupon.status == True
-    ).first()
+    redis = get_redis_client()
+    cache_key = f"coupon:{data.code.upper()}"
 
-    if not coupon:
-        return {
-            "valid": False,
-            "discount": 0,
-            "message": "Invalid coupon code"
-        }
+    # 🔹 Try Redis first
+    try:
+        cached = redis.get(cache_key)
+        if cached:
+            coupon_data = json.loads(cached)
+        else:
+            coupon = db.query(Coupon).filter(
+                Coupon.code == data.code.upper(),
+                Coupon.status == True
+            ).first()
+
+            if not coupon:
+                return {
+                    "valid": False,
+                    "discount": 0,
+                    "message": "Invalid coupon code"
+                }
+
+            coupon_data = jsonable_encoder(coupon)
+
+            # Cache for 5 minutes
+            redis.setex(cache_key, 300, json.dumps(coupon_data))
+
+    except Exception:
+        coupon = db.query(Coupon).filter(
+            Coupon.code == data.code.upper(),
+            Coupon.status == True
+        ).first()
+
+        if not coupon:
+            return {
+                "valid": False,
+                "discount": 0,
+                "message": "Invalid coupon code"
+            }
+
+        coupon_data = jsonable_encoder(coupon)
 
     now = datetime.utcnow()
 
-    # Date check
-    if coupon.valid_from > now or coupon.valid_to < now:
+    # 🔹 Date check
+    if coupon_data["valid_from"] > now.isoformat() or coupon_data["valid_to"] < now.isoformat():
         return {
             "valid": False,
             "discount": 0,
             "message": "Coupon expired"
         }
 
-    # Minimum order check
-    if data.subtotal < coupon.min_order_amount:
+    # 🔹 Minimum order check
+    if data.subtotal < coupon_data["min_order_amount"]:
         return {
             "valid": False,
             "discount": 0,
-            "message": f"Minimum order ₹{coupon.min_order_amount} required"
+            "message": f"Minimum order ₹{coupon_data['min_order_amount']} required"
         }
 
-    # Usage limit check
-    if coupon.total_usage_limit and coupon.used_count >= coupon.total_usage_limit:
-        return {
-            "valid": False,
-            "discount": 0,
-            "message": "Coupon usage limit reached"
-        }
-
-    # =====================
-    # Applicability Check
-    # =====================
-
-    if coupon.applicable_type == "product":
-        allowed_products = [cp.product_id for cp in coupon.products]
-
-        if not any(pid in allowed_products for pid in data.product_ids):
-            return {
-                "valid": False,
-                "discount": 0,
-                "message": "Coupon not applicable to this product"
-            }
-
-    elif coupon.applicable_type == "category":
-        allowed_categories = [cc.category_id for cc in coupon.categories]
-
-        product_categories = db.query(Product.category_id).filter(
-            Product.id.in_(data.product_ids)
-        ).all()
-
-        product_category_ids = [pc[0] for pc in product_categories]
-
-        if not any(cid in allowed_categories for cid in product_category_ids):
-            return {
-                "valid": False,
-                "discount": 0,
-                "message": "Coupon not applicable to this category"
-            }
-
-    # =====================
-    # Discount Calculation
-    # =====================
-
+    # 🔹 Discount Calculation
     discount = 0
 
-    if coupon.discount_type == "percentage":
-        discount = (data.subtotal * coupon.discount_value) / 100
+    if coupon_data["discount_type"] == "percentage":
+        discount = (data.subtotal * coupon_data["discount_value"]) / 100
 
-        if coupon.max_discount_amount:
-            discount = min(discount, coupon.max_discount_amount)
+        if coupon_data["max_discount_amount"]:
+            discount = min(discount, coupon_data["max_discount_amount"])
 
-    elif coupon.discount_type == "fixed":
-        discount = coupon.discount_value
+    elif coupon_data["discount_type"] == "fixed":
+        discount = coupon_data["discount_value"]
 
     return {
         "valid": True,
