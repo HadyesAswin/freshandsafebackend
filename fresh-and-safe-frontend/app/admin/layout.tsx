@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -52,7 +53,7 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* --- SIDEBAR --- */}
+      {/* SIDEBAR */}
       <aside
         className={`bg-slate-800 text-white w-64 h-screen flex flex-col transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64"
@@ -72,7 +73,9 @@ export default function AdminLayout({
         {/* Scrollable Navigation */}
         <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-1 custom-scrollbar pb-24">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+
             return (
               <Link
                 key={item.href} // ✅ Keys are now unique
@@ -102,7 +105,7 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center flex-shrink-0 z-10">

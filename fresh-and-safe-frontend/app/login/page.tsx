@@ -6,7 +6,7 @@ import Link from "next/link"; // <--- ✅ THIS WAS MISSING
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@freshtohome.com");
+  const [email, setEmail] = useState("etournament49@gmail.com");
   const [password, setPassword] = useState("admin123");
   const [status, setStatus] = useState("Idle");
 
