@@ -18,27 +18,37 @@ export default function AdminLayout({
     router.push("/login");
   };
 
-  // ✅ UNIQUE ID FOR EACH ITEM (VERY IMPORTANT)
+  // ✅ CLEANED: One entry per path, organized by priority
   const navItems = [
-    { id: "dashboard", name: "Dashboard", href: "/admin", icon: "🏠" },
-    { id: "outlets", name: "Outlets", href: "/admin/outlets", icon: "🏪" },
-    { id: "categories", name: "Categories", href: "/admin/categories", icon: "📁" },
-    { id: "certificates", name: "Certificates", href: "/admin/certificates", icon: "📜" },
-    { id: "banners", name: "Banners", href: "/admin/banners", icon: "🖼️" },
-    { id: "products", name: "Products", href: "/admin/products", icon: "📦" },
-    { id: "terms", name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
-    { id: "refund", name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
-    { id: "news", name: "News", href: "/admin/news", icon: "📰" },
-    { id: "faq", name: "FAQs", href: "/admin/faq", icon: "❓" },
-    { id: "privacy", name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
-    { id: "marquee", name: "Marquee", href: "/admin/marquee", icon: "🏃" },
-    { id: "contact", name: "Contact Us", href: "/admin/contact", icon: "📞" },
-    { id: "deals", name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
-    { id: "coupons", name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
-    { id: "password", name: "Change Password", href: "/admin/change-password", icon: "🔑" },
-    { id: "users", name: "Users", href: "/admin/users", icon: "👥" },
-    { id: "sales", name: "Sales Overview", href: "/admin/sales", icon: "📊" },
-    { id: "testimonials", name: "Testimonials", href: "/admin/testimonials", icon: "💬" },
+    // 1. Business Metrics
+    { name: "Dashboard", href: "/admin", icon: "🏠" },
+    { name: "Sales Overview", href: "/admin/sales", icon: "📊" },
+    
+
+    // 2. Core Store Management
+    { name: "Outlets", href: "/admin/outlets", icon: "🏪" },
+    { name: "Users", href: "/admin/users", icon: "👥" },
+    { name: "Categories", href: "/admin/categories", icon: "📁" },
+    { name: "Products", href: "/admin/products", icon: "📦" },
+    { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
+    { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
+
+    // 3. CMS / Marketing Content
+    { name: "Banners", href: "/admin/banners", icon: "🖼️" },
+    { name: "Certificates", href: "/admin/certificates", icon: "📜" },
+    { name: "Testimonials", href: "/admin/testimonials", icon: "💬" },
+    { name: "News", href: "/admin/news", icon: "📰" },
+    { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
+    { name: "FAQs", href: "/admin/faq", icon: "❓" },
+
+    // 4. Legal & Support
+    { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
+    { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
+    { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+    { name: "Contact Us", href: "/admin/contact", icon: "📞" },
+
+    // 5. Account
+    { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
   ];
 
   return (
@@ -47,7 +57,7 @@ export default function AdminLayout({
       <aside
         className={`bg-slate-800 text-white w-64 h-screen flex flex-col transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64"
-        } fixed md:relative z-10`}
+        } fixed md:relative z-20`}
       >
         {/* Header */}
         <div className="p-4 flex justify-between items-center border-b border-slate-700 flex-shrink-0">
@@ -60,37 +70,37 @@ export default function AdminLayout({
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-2 custom-scrollbar">
+        {/* Scrollable Navigation */}
+        <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-1 custom-scrollbar pb-24">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
 
             return (
               <Link
-                key={item.id}
+                key={item.href} // ✅ Keys are now unique
                 href={item.href}
-                className={`flex items-center px-4 py-3 rounded-md transition-colors ${
+                className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                   isActive
-                    ? "bg-green-600 text-white shadow-md"
-                    : "text-gray-300 hover:bg-slate-700 hover:text-white"
+                    ? "bg-green-600 text-white shadow-lg shadow-green-900/20"
+                    : "text-gray-300 hover:bg-slate-700/50 hover:text-white"
                 }`}
               >
                 <span className="mr-3 text-lg">{item.icon}</span>
-                <span className="font-medium">{item.name}</span>
+                <span className="font-semibold text-sm">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Logout */}
+        {/* Logout Button */}
         <div className="p-4 border-t border-slate-700 bg-slate-800 flex-shrink-0">
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-3 text-red-400 hover:bg-slate-700 hover:text-red-300 rounded-md transition-colors"
+            className="flex items-center w-full px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-colors group"
           >
-            <span className="mr-3 text-lg">🚪</span>
-            <span className="font-medium">Logout</span>
+            <span className="mr-3 text-lg group-hover:scale-110 transition-transform">🚪</span>
+            <span className="font-bold text-sm uppercase tracking-wider">Logout</span>
           </button>
         </div>
       </aside>
@@ -98,30 +108,31 @@ export default function AdminLayout({
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center flex-shrink-0">
+        <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center flex-shrink-0 z-10">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="text-gray-600 p-2 rounded hover:bg-gray-100"
+            className="text-gray-600 p-2 rounded-lg bg-gray-50 font-bold text-xs flex items-center gap-2"
           >
-            ☰ Menu
+            <span className="text-lg">☰</span> Menu
           </button>
-          <span className="font-bold text-slate-800">Admin Panel</span>
+          <span className="font-black text-slate-800 uppercase tracking-tighter italic">FreshPanel</span>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-8 overflow-y-auto">{children}</div>
+        <div className="flex-1 p-6 md:p-10 overflow-y-auto bg-gray-50/50">
+          {children}
+        </div>
       </main>
 
-      {/* Scrollbar Style */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
+          width: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #1e293b;
+          background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #475569;
+          background: #334155;
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
