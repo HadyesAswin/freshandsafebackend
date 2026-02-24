@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,52 +18,38 @@ export default function AdminLayout({
     router.push("/login");
   };
 
+  // ✅ UNIQUE ID FOR EACH ITEM (VERY IMPORTANT)
   const navItems = [
-    { name: "Dashboard", href: "/admin", icon: "🏠" },
-    { name: "Outlets", href: "/admin/outlets", icon: "🏪" },
-    { name: "Categories", href: "/admin/categories", icon: "📁" },
-    { name: "Certificates", href: "/admin/certificates", icon: "📜" },
-    { name: "Banners", href: "/admin/banners", icon: "🖼️" },
-    { name: "Products", href: "/admin/products", icon: "📦" },
-    { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
-    { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
-    { name: "News", href: "/admin/news", icon: "📰" },
-    { name: "FAQs", href: "/admin/faq", icon: "❓" },
-    { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
-    { name: "Marquee", href: "/admin/marquee", icon: "🏃" },
-    { name: "Contact Us", href: "/admin/contact", icon: "📞" },
-    { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
-    { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
-    { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
-    { name: "Users", href: "/admin/users", icon: "👥" },
-    { name: "Sales Overview", href: "/admin/sales", icon: "📊" },
-  { name: "Certificates", href: "/admin/certificates", icon: "📜" }, // ✅ NEW
-  { name: "Banners", href: "/admin/banners", icon: "🖼️" },
-  { name: "Products", href: "/admin/products", icon: "📦" }, 
-  { name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄"},
-  { name: "Testimonials", href: "/admin/testimonials", icon: "💬" },
-  { name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
-  { name: "News", href: "/admin/news", icon: "📰" },
-  { name: "FAQs", href: "/admin/faq", icon: "❓" },
-  { name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
-  { name: "Marquee", href: "/admin/marquee", icon: "🏃" }, 
-  { name: "Contact Us", href: "/admin/contact", icon: "📞" },
-  { name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
-  { name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
-  { name: "Change Password", href: "/admin/change-password", icon: "🔑" },
-    { name: "Orders", href: "/admin/orders", icon: "🛒" },     // (Coming Soon)
-    { name: "Users", href: "/admin/users", icon: "👥" },       // (Coming Soon)
+    { id: "dashboard", name: "Dashboard", href: "/admin", icon: "🏠" },
+    { id: "outlets", name: "Outlets", href: "/admin/outlets", icon: "🏪" },
+    { id: "categories", name: "Categories", href: "/admin/categories", icon: "📁" },
+    { id: "certificates", name: "Certificates", href: "/admin/certificates", icon: "📜" },
+    { id: "banners", name: "Banners", href: "/admin/banners", icon: "🖼️" },
+    { id: "products", name: "Products", href: "/admin/products", icon: "📦" },
+    { id: "terms", name: "Terms & Conditions", href: "/admin/termsandconditions", icon: "📄" },
+    { id: "refund", name: "Refund Policy", href: "/admin/refundpolicy", icon: "🔒" },
+    { id: "news", name: "News", href: "/admin/news", icon: "📰" },
+    { id: "faq", name: "FAQs", href: "/admin/faq", icon: "❓" },
+    { id: "privacy", name: "Privacy Policy", href: "/admin/privacy", icon: "🛡️" },
+    { id: "marquee", name: "Marquee", href: "/admin/marquee", icon: "🏃" },
+    { id: "contact", name: "Contact Us", href: "/admin/contact", icon: "📞" },
+    { id: "deals", name: "Daily Deals", href: "/admin/daily-deals", icon: "🔥" },
+    { id: "coupons", name: "Coupons", href: "/admin/coupons", icon: "🎟️" },
+    { id: "password", name: "Change Password", href: "/admin/change-password", icon: "🔑" },
+    { id: "users", name: "Users", href: "/admin/users", icon: "👥" },
+    { id: "sales", name: "Sales Overview", href: "/admin/sales", icon: "📊" },
+    { id: "testimonials", name: "Testimonials", href: "/admin/testimonials", icon: "💬" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* --- SIDEBAR --- */}
+      {/* SIDEBAR */}
       <aside
         className={`bg-slate-800 text-white w-64 h-screen flex flex-col transition-all duration-300 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64"
         } fixed md:relative z-10`}
       >
-        {/* Header - Stays Fixed at Top */}
+        {/* Header */}
         <div className="p-4 flex justify-between items-center border-b border-slate-700 flex-shrink-0">
           <h1 className="text-xl font-bold text-green-400">FreshAdmin</h1>
           <button
@@ -73,13 +60,15 @@ export default function AdminLayout({
           </button>
         </div>
 
-        {/* Navigation - ✅ THIS SECTION IS NOW SCROLLABLE */}
+        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-2 custom-scrollbar">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+
             return (
               <Link
-                key={item.href}
+                key={item.id}
                 href={item.href}
                 className={`flex items-center px-4 py-3 rounded-md transition-colors ${
                   isActive
@@ -94,7 +83,7 @@ export default function AdminLayout({
           })}
         </nav>
 
-        {/* Logout Button - Stays Fixed at Bottom */}
+        {/* Logout */}
         <div className="p-4 border-t border-slate-700 bg-slate-800 flex-shrink-0">
           <button
             onClick={handleLogout}
@@ -106,7 +95,7 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden bg-white shadow-sm p-4 flex justify-between items-center flex-shrink-0">
@@ -120,12 +109,10 @@ export default function AdminLayout({
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-8 overflow-y-auto">
-          {children}
-        </div>
+        <div className="flex-1 p-8 overflow-y-auto">{children}</div>
       </main>
 
-      {/* CSS to make scrollbar look better (Optional) */}
+      {/* Scrollbar Style */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;

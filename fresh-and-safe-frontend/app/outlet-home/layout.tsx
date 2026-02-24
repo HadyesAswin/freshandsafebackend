@@ -30,8 +30,10 @@ export default function OutletLayout({
   // 📌 Outlet Navigation
   const navItems = [
     { name: "Dashboard", href: "/outlet-home", icon: "🏠" },
+    { name: "Out For Delivery", href: "/outlet-home/out-for-delivery", icon: "🚚" },
+    { name: "Completed Orders", href: "/outlet-home/completed-orders", icon: "✅" },
+    { name: "Sales Report", href: "/outlet-home/reports", icon: "📊" },
     { name: "Manage Products", href: "/outlet-home/outletviewproduct", icon: "📦" },
-    { name: "Orders", href: "/outlet-home/orders", icon: "🛒" },
     { name: "Profile", href: "/outlet-home/profile", icon: "👤" },
     { name: "ChangePassword", href: "/outlet-home/settings", icon: "⚙️" },
   ];
@@ -56,7 +58,7 @@ export default function OutletLayout({
 
         <nav className="mt-6 px-2 space-y-2">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
