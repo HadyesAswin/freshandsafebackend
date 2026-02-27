@@ -1,9 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  ArrowLeft, 
+  Scale, 
+  Save, 
+  Loader2, 
+  Info,
+  FileText,
+  AlignLeft
+} from "lucide-react";
 
-export default function TermsFormPage() {
+function TermsFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -14,6 +23,7 @@ export default function TermsFormPage() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState(true);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Load terms if editing
   useEffect(() => {
@@ -33,6 +43,7 @@ export default function TermsFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     const token = localStorage.getItem("token");
 
     const data = new FormData();
@@ -55,58 +66,128 @@ export default function TermsFormPage() {
       router.push("/admin/termsandconditions");
     } catch (err: any) {
       setMessage(err.response?.data?.detail || "Action failed");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Standardized styling classes
+  const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
+  const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">
-        {isEdit ? "✏️ Edit Terms" : "➕ Add Terms"}
-      </h1>
+    <div className="max-w-3xl mx-auto pb-12 animate-in fade-in duration-500">
+      
+      {/* Header Area */}
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          type="button"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Scale className="w-6 h-6 text-red-600" />
+            {isEdit ? "Edit Terms" : "Add Terms"}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isEdit ? "Update your existing legal policies and terms." : "Create a new legal document or policy for your platform."}
+          </p>
+        </div>
+      </div>
 
-      {message && <p className="text-red-600 mb-4">{message}</p>}
+      {message && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2">
+          <Info className="w-4 h-4" /> {message}
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="border p-2 w-full rounded"
-          placeholder="Title"
-          required
-        />
-
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="border p-2 w-full rounded min-h-[200px]"
-          placeholder="Terms description"
-          required
-        />
-
-        <label className="flex items-center space-x-2">
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
+        
+        {/* Title Section */}
+        <div>
+          <label className={`${labelClass} flex items-center gap-2`}>
+            <FileText className="w-4 h-4 text-red-500" /> 
+            Document Title
+          </label>
           <input
-            type="checkbox"
-            checked={status}
-            onChange={(e) => setStatus(e.target.checked)}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className={inputClass}
+            placeholder="e.g. Terms of Service, Privacy Policy"
+            required
           />
-          <span>Active</span>
-        </label>
+        </div>
 
-        <div className="flex space-x-3">
-          <button className="bg-green-600 text-white px-6 py-2 rounded font-bold">
-            {isEdit ? "Update" : "Save"}
-          </button>
+        {/* Content Section */}
+        <div>
+          <label className={`${labelClass} flex items-center gap-2`}>
+            <AlignLeft className="w-4 h-4 text-red-500" /> 
+            Full Description / Content
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={`${inputClass} min-h-[300px] resize-y leading-relaxed`}
+            placeholder="Enter the full legal text or terms here..."
+            required
+          />
+        </div>
 
+        {/* Configuration Section */}
+        <div className="pt-2">
+          <label className="flex items-center cursor-pointer group w-max">
+            <div className="relative flex items-center justify-center">
+              <input 
+                type="checkbox" 
+                checked={status} 
+                onChange={(e) => setStatus(e.target.checked)} 
+                className="peer sr-only" 
+              />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+            </div>
+            <div className="ml-3">
+              <span className="block text-sm font-semibold text-gray-900">Active Status</span>
+              <span className="block text-[10px] text-gray-400 uppercase tracking-tighter">Visible on Website</span>
+            </div>
+          </label>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={() => router.back()}
-            className="bg-gray-400 text-white px-6 py-2 rounded"
+            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
+          </button>
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isEdit ? "Update Terms" : "Save Terms"}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+export default function AddTermsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
+        <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+        <p className="text-sm font-medium">Loading form...</p>
+      </div>
+    }>
+      <TermsFormContent />
+    </Suspense>
   );
 }

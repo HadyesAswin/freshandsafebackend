@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, FolderPlus, FolderEdit, Save, Loader2, Image as ImageIcon, Hash, AlignLeft } from "lucide-react";
 
 function CategoryFormContent() {
   const router = useRouter();
@@ -96,67 +97,140 @@ function CategoryFormContent() {
     }
   };
 
+  // Reusable Tailwind classes matching the new minimal theme
+  const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
+  const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
+
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="flex items-center mb-8 space-x-4">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-black font-medium">← Back to List</button>
-        <h1 className="text-2xl font-bold text-gray-800">{editingId ? "✏️ Edit Category" : "➕ Add New Category"}</h1>
+    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
+      
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Go Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            {editingId ? <FolderEdit className="w-6 h-6 text-gray-400" /> : <FolderPlus className="w-6 h-6 text-gray-400" />}
+            {editingId ? "Edit Category" : "Add New Category"}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {editingId ? "Update the details and visibility of this category." : "Create a new product category for your store."}
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
+        
+        {/* Core Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">Category Name</label>
+          <div>
+            <label className={labelClass}>Category Name</label>
             <input 
-                name="name" 
-                value={formData.name} 
-                onChange={handleChange} 
-                className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" 
-                placeholder="e.g. Fresh Fruits"
-                required 
+              name="name" 
+              value={formData.name} 
+              onChange={handleChange} 
+              className={inputClass} 
+              placeholder="e.g. Fresh Fruits"
+              required 
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">URL Slug (Auto-generated)</label>
+          <div>
+            <label className={labelClass}>URL Slug (Auto-generated)</label>
             <input 
-                name="slug" 
-                value={formData.slug} 
-                onChange={handleChange} 
-                className="w-full border p-3 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none text-gray-600 font-mono" 
-                placeholder="e.g. fresh-fruits"
-                required 
+              name="slug" 
+              value={formData.slug} 
+              onChange={handleChange} 
+              className={`${inputClass} font-mono text-gray-500 bg-gray-100 focus:bg-gray-100`} 
+              placeholder="e.g. fresh-fruits"
+              required 
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-700">Description</label>
-          <textarea name="description" value={formData.description} onChange={handleChange} className="w-full border p-3 rounded-lg h-32 focus:ring-2 focus:ring-green-500 outline-none" />
+        <div>
+          <label className={`${labelClass} flex items-center gap-2`}>
+            <AlignLeft className="w-4 h-4" /> Description
+          </label>
+          <textarea 
+            name="description" 
+            value={formData.description} 
+            onChange={handleChange} 
+            className={`${inputClass} min-h-[120px] resize-y`} 
+            placeholder="Add a brief description about the products in this category..."
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">Display Image</label>
-            <input type="file" onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} className="w-full border p-2 rounded-lg text-sm bg-gray-50" accept="image/*" />
+        {/* Media & Ordering */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+          <div>
+            <label className={`${labelClass} flex items-center gap-2`}>
+              <ImageIcon className="w-4 h-4" /> Display Image
+            </label>
+            <input 
+              type="file" 
+              onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} 
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 border border-gray-200 rounded-lg bg-white transition-all cursor-pointer" 
+              accept="image/*" 
+            />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">Display Order</label>
-            <input type="number" name="display_order" value={formData.display_order} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+          <div>
+            <label className={`${labelClass} flex items-center gap-2`}>
+              <Hash className="w-4 h-4" /> Display Order
+            </label>
+            <input 
+              type="number" 
+              name="display_order" 
+              value={formData.display_order} 
+              onChange={handleChange} 
+              className={inputClass} 
+              placeholder="0"
+            />
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-          <input type="checkbox" name="status" checked={formData.status} onChange={handleChange} className="h-5 w-5 rounded text-green-600 focus:ring-green-500" />
-          <span className="font-semibold text-gray-700 text-sm">Active (Visible on website)</span>
+        {/* Status Toggle */}
+        <div className="pt-4">
+          <label className="flex items-center cursor-pointer group w-max">
+            <div className="relative flex items-center justify-center">
+              <input type="checkbox" name="status" checked={formData.status} onChange={handleChange} className="peer sr-only" />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+            </div>
+            <div className="ml-3">
+              <span className="block text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
+                Active Category
+              </span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Visible to customers on the website
+              </span>
+            </div>
+          </label>
         </div>
 
-        <button 
+        {/* Submit Button */}
+        <div className="pt-6 border-t border-gray-100">
+          <button 
             type="submit" 
             disabled={loading}
-            className="w-full py-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400 transition-all shadow-lg active:scale-95"
-        >
-            {loading ? "Saving..." : editingId ? "Update Category" : "Save Category"}
-        </button>
+            className="w-full sm:w-auto sm:min-w-[200px] flex items-center justify-center gap-2 py-3 px-6 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ml-auto"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                {editingId ? "Update Category" : "Save Category"}
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -164,7 +238,12 @@ function CategoryFormContent() {
 
 export default function CategoryAddPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">Loading Form...</div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64 text-gray-500 gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+        Loading form...
+      </div>
+    }>
       <CategoryFormContent />
     </Suspense>
   );

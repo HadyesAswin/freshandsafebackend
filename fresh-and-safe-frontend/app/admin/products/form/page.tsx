@@ -1,7 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  ArrowLeft, 
+  Save, 
+  X, 
+  PackagePlus, 
+ 
+  Image as ImageIcon, 
+  IndianRupee, 
+  Tag, 
+  Layers,
+  Info,
+  Loader2,
+  Type
+} from "lucide-react";
 
 // ---------- Helper ----------
 const generateSlug = (text: string) => {
@@ -13,7 +27,7 @@ const generateSlug = (text: string) => {
     .replace(/-+/g, "-");
 };
 
-export default function ProductFormPage() {
+function ProductFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -36,6 +50,7 @@ export default function ProductFormPage() {
   const [isAvailable, setIsAvailable] = useState(true);
 
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Load categories
   useEffect(() => {
@@ -56,7 +71,7 @@ export default function ProductFormPage() {
           setCategoryId(product.category_id);
           setName(product.name);
           setSlug(product.slug);
-          setSlugTouched(true); // prevent auto overwrite on edit
+          setSlugTouched(true); 
           setPrice(product.price);
           setComparePrice(product.compare_price || "");
           setUnit(product.unit || "");
@@ -69,6 +84,7 @@ export default function ProductFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     const token = localStorage.getItem("token");
 
     const data = new FormData();
@@ -99,135 +115,240 @@ export default function ProductFormPage() {
       router.push("/admin/products");
     } catch (err: any) {
       setMessage(err.response?.data?.detail || "Action failed");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Reusable Tailwind classes
+  const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
+  const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">
-        {isEdit ? "✏️ Edit Product" : "➕ Add Product"}
-      </h1>
-
-      {message && <p className="text-red-600 mb-4">{message}</p>}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(Number(e.target.value))}
-          className="border p-2 w-full rounded"
-          required
+    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          <option value="">Select Category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          {/* <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            {isEdit ? <PackageEdit className="w-6 h-6 text-red-600" /> : <PackagePlus className="w-6 h-6 text-red-600" />}
+            {isEdit ? "Edit Product" : "Add New Product"}
+          </h1> */}
+          <p className="text-sm text-gray-500 mt-1">Configure your product details, pricing, and stock status.</p>
+        </div>
+      </div>
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImage(e.target.files?.[0] || null)}
-          required={!isEdit}
-        />
+      {message && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2">
+          <Info className="w-4 h-4" /> {message}
+        </div>
+      )}
 
-        {/* Product Name */}
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => {
-            const value = e.target.value;
-            setName(value);
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
+          
+          {/* Section: Basic Details */}
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-50 pb-2">
+              <Tag className="w-4 h-4 text-red-500" />
+              <h2>Product Details</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className={labelClass}>Product Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setName(value);
+                    if (!slugTouched) setSlug(generateSlug(value));
+                  }}
+                  className={inputClass}
+                  placeholder="e.g. Fresh Organic Banana"
+                  required
+                />
+              </div>
 
-            if (!slugTouched) {
-              setSlug(generateSlug(value));
-            }
-          }}
-          className="border p-2 w-full rounded"
-          placeholder="Product Name"
-          required
-        />
+              <div>
+                <label className={labelClass}>Category</label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(Number(e.target.value))}
+                  className={inputClass}
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
 
-        {/* Slug */}
-        <input
-          type="text"
-          value={slug}
-          onChange={(e) => {
-            setSlugTouched(true);
-            setSlug(e.target.value);
-          }}
-          className="border p-2 w-full rounded"
-          placeholder="Slug"
-          required
-        />
+              <div>
+                <label className={labelClass}>URL Slug</label>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) => {
+                    setSlugTouched(true);
+                    setSlug(e.target.value);
+                  }}
+                  className={`${inputClass} font-mono bg-gray-100/50`}
+                  placeholder="slug-format-name"
+                  required
+                />
+              </div>
+            </div>
+          </div>
 
-        <input
-          type="number"
-          value={price}
-          onChange={(e) => setPrice(Number(e.target.value))}
-          className="border p-2 w-full rounded"
-          placeholder="Price"
-          required
-        />
+          {/* Section: Pricing & Inventory */}
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-50 pb-2">
+              <IndianRupee className="w-4 h-4 text-red-500" />
+              <h2>Pricing & Inventory</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className={labelClass}>Price (₹)</label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(Number(e.target.value))}
+                  className={inputClass}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Compare Price (₹)</label>
+                <input
+                  type="number"
+                  value={comparePrice}
+                  onChange={(e) => setComparePrice(e.target.valueAsNumber || "")}
+                  className={inputClass}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Unit (e.g. kg, pcs)</label>
+                <input
+                  type="text"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className={inputClass}
+                  placeholder="1kg / 1 unit"
+                />
+              </div>
+            </div>
+          </div>
 
-        <input
-          type="number"
-          value={comparePrice}
-          onChange={(e) => setComparePrice(e.target.valueAsNumber || "")}
-          className="border p-2 w-full rounded"
-          placeholder="Compare Price (optional)"
-        />
+          {/* Section: Media & Info */}
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-50 pb-2">
+              <Layers className="w-4 h-4 text-red-500" />
+              <h2>Media & Description</h2>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <label className={labelClass}>Product Image</label>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative">
+                  <div className="space-y-1 text-center">
+                    <ImageIcon className="mx-auto h-12 w-12 text-gray-300" />
+                    <div className="flex text-sm text-gray-600">
+                      <label className="relative cursor-pointer rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
+                        <span>Upload a file</span>
+                        <input 
+                          type="file" 
+                          className="sr-only" 
+                          accept="image/*"
+                          onChange={(e) => setImage(e.target.files?.[0] || null)}
+                          required={!isEdit} 
+                        />
+                      </label>
+                      <p className="pl-1 text-gray-500">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-gray-400 font-medium">PNG, JPG up to 5MB</p>
+                    {image && <p className="text-xs text-red-600 font-bold mt-2">Selected: {image.name}</p>}
+                  </div>
+                </div>
+              </div>
 
-        <input
-          type="text"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          className="border p-2 w-full rounded"
-          placeholder="Unit (e.g. kg, pcs)"
-        />
+              <div>
+                <label className={labelClass}>Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={`${inputClass} min-h-[120px] resize-y`}
+                  placeholder="Write something about this product..."
+                />
+              </div>
+            </div>
+          </div>
 
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="border p-2 w-full rounded"
-          placeholder="Description"
-        />
+          {/* Section: Status Toggles */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
+            <label className="flex items-center cursor-pointer group">
+              <div className="relative flex items-center justify-center">
+                <input type="checkbox" checked={status} onChange={(e) => setStatus(e.target.checked)} className="peer sr-only" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+              </div>
+              <div className="ml-3">
+                <span className="block text-sm font-semibold text-gray-900">Active</span>
+                <span className="block text-xs text-gray-500">Visible on the website</span>
+              </div>
+            </label>
 
-        <div className="flex space-x-4">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={status}
-              onChange={(e) => setStatus(e.target.checked)}
-            />
-            <span>Active</span>
-          </label>
-
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={isAvailable}
-              onChange={(e) => setIsAvailable(e.target.checked)}
-            />
-            <span>Available</span>
-          </label>
+            <label className="flex items-center cursor-pointer group">
+              <div className="relative flex items-center justify-center">
+                <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} className="peer sr-only" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+              </div>
+              <div className="ml-3">
+                <span className="block text-sm font-semibold text-gray-900">In Stock</span>
+                <span className="block text-xs text-gray-500">Available for customer orders</span>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <div className="flex space-x-3">
-          <button className="bg-green-600 text-white px-6 py-2 rounded font-bold">
-            {isEdit ? "Update" : "Save"}
-          </button>
-
+        {/* Form Actions */}
+        <div className="flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={() => router.back()}
-            className="bg-gray-400 text-white px-6 py-2 rounded"
+            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
+          </button>
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Save className="w-4 h-4 text-white" />}
+            {isEdit ? "Update Product" : "Save Product"}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+export default function ProductFormPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64 text-gray-500 gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+        Loading product form...
+      </div>
+    }>
+      <ProductFormContent />
+    </Suspense>
   );
 }

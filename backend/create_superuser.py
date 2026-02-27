@@ -17,6 +17,7 @@ def create_superuser():
     super_user = User(
         full_name="Super Admin",
         email="etournament49@gmail.com",
+        phone="9999999999",
         hashed_password=get_password_hash("admin123"), # Default password
         role=UserRole.ADMIN,
         is_active=True
