@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Plus, Pencil, Trash2, Ticket, Calendar, BarChart3, Tag } from "lucide-react";
 
 export default function CouponListPage() {
   const [coupons, setCoupons] = useState([]);
@@ -29,13 +30,12 @@ export default function CouponListPage() {
       await axios.delete(`http://localhost:8000/api/v1/coupons/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchCoupons(); // Refresh list after delete
+      fetchCoupons(); 
     } catch (err) {
       alert("Error deleting coupon");
     }
   };
 
-  // Helper to format dates nicely
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -44,98 +44,127 @@ export default function CouponListPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Manage Coupons</h1>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      
+      {/* Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Ticket className="w-6 h-6 text-red-600" />
+            Manage Coupons
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Create and manage discount codes for your customers.</p>
+        </div>
         <Link 
           href="/admin/coupons/add" 
-          className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-md transition-all active:scale-95"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-700 transition-all shadow-sm active:scale-[0.98]"
         >
-          + Create New Coupon
+          <Plus className="w-4 h-4" />
+          Create New Coupon
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Discount</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Validity</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {coupons.map((c: any) => (
-              <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                
-                {/* Coupon Code */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-bold text-slate-900 bg-gray-100 px-2 py-1 rounded inline-block border border-gray-300">
-                    {c.code}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">Used: {c.used_count} times</div>
-                </td>
-
-                {/* Discount Details */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-bold text-green-600">
-                    {c.discount_type === 'percentage' ? `${c.discount_value}% OFF` : `₹${c.discount_value} OFF`}
-                  </div>
-                  {c.min_order_amount > 0 && (
-                    <div className="text-xs text-gray-500">Min Order: ₹{c.min_order_amount}</div>
-                  )}
-                </td>
-
-                {/* Date Range */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-xs text-gray-900 font-medium">From: {formatDate(c.valid_from)}</div>
-                    <div className="text-xs text-gray-500">To: {formatDate(c.valid_to)}</div>
-                </td>
-
-                {/* Applicable Type */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                        {c.applicable_type}
-                    </span>
-                </td>
-
-                {/* Status */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {c.status ? 'Active' : 'Expired/Inactive'}
-                  </span>
-                </td>
-
-                {/* Actions - HERE IS THE EDIT LOGIC */}
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                  <button 
-                    onClick={() => router.push(`/admin/coupons/add?id=${c.id}`)} 
-                    className="text-indigo-600 hover:text-indigo-900 font-bold"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(c.id)} 
-                    className="text-red-600 hover:text-red-900 font-bold"
-                  >
-                    Delete
-                  </button>
-                </td>
+      {/* Table Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-200">
+              <tr>
+                <th scope="col" className="px-6 py-4 font-medium">Code</th>
+                <th scope="col" className="px-6 py-4 font-medium">Discount</th>
+                <th scope="col" className="px-6 py-4 font-medium">Validity</th>
+                <th scope="col" className="px-6 py-4 font-medium">Type</th>
+                <th scope="col" className="px-6 py-4 font-medium text-center">Status</th>
+                <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
-            ))}
-
-            {coupons.length === 0 && (
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {coupons.length === 0 ? (
                 <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500 text-sm">
-                        No coupons found. Create your first discount code!
-                    </td>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                     <Tag className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                     <p className="text-sm text-gray-500 font-medium">No coupons found. Create your first discount code!</p>
+                  </td>
                 </tr>
-            )}
-          </tbody>
-        </table>
+              ) : (
+                coupons.map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
+                    
+                    {/* Coupon Code */}
+                    <td className="px-6 py-4">
+                      <div className="inline-flex items-center font-mono font-bold text-red-600 bg-red-50 px-3 py-1 rounded-md border border-red-100 border-dashed">
+                        {c.code}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mt-1.5 font-medium uppercase tracking-wider">
+                        <BarChart3 className="w-3 h-3" /> Used {c.used_count} times
+                      </div>
+                    </td>
+
+                    {/* Discount Details */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold text-gray-900">
+                        {c.discount_type === 'percentage' ? `${c.discount_value}% OFF` : `₹${c.discount_value} OFF`}
+                      </div>
+                      {c.min_order_amount > 0 && (
+                        <div className="text-xs text-gray-500 mt-0.5 font-medium italic">Min Order: ₹{c.min_order_amount}</div>
+                      )}
+                    </td>
+
+                    {/* Validity Range */}
+                    <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1 text-xs font-medium">
+                          <div className="flex items-center gap-1.5 text-gray-700">
+                            <Calendar className="w-3 h-3 text-gray-400" /> {formatDate(c.valid_from)}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-gray-400">
+                            <span className="w-3 h-0.5 bg-gray-200 ml-0.5"></span> {formatDate(c.valid_to)}
+                          </div>
+                        </div>
+                    </td>
+
+                    {/* Applicable Type */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-100">
+                            {c.applicable_type}
+                        </span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                        c.status 
+                        ? 'bg-green-50 text-green-700 border-green-200' 
+                        : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {c.status ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => router.push(`/admin/coupons/add?id=${c.id}`)} 
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Edit Coupon"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(c.id)} 
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Coupon"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

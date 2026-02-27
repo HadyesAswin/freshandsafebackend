@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IndianRupee, ShoppingCart, Users, Activity } from "lucide-react";
 
 interface DashboardStats {
   total_orders: number;
@@ -40,57 +41,81 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="animate-in fade-in duration-700">
-      <header className="mb-10">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+    <div className="animate-in fade-in duration-500">
+      <header className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
           Welcome Back, Admin!
         </h1>
-        <p className="text-slate-500 font-medium mt-1">
+        <p className="text-sm text-gray-500 mt-1">
           Here is what's happening with your store today.
         </p>
       </header>
       
-      {/* Updated Grid for 3 Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* Updated Grid for 3 Stats Cards - Clean and Minimal */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Total Revenue Card */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 border-b-4 border-b-green-500 hover:shadow-md transition-shadow">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest">Total Revenue</h3>
-          <p className="text-4xl font-black text-slate-800 mt-3">
-            ₹{loading ? "..." : stats.total_revenue.toLocaleString()}
-          </p>
-          <div className="mt-4 flex items-center text-green-600 text-xs font-bold">
-            <span>Live from all outlets</span>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-red-100 transition-all group">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-gray-500 text-sm font-medium">Total Revenue</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">
+                ₹{loading ? "..." : stats.total_revenue.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+              <IndianRupee className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-gray-500 text-xs">
+            <span className="text-red-600 font-medium mr-1">Live</span> from all outlets
           </div>
         </div>
 
         {/* Total Orders Card */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 border-b-4 border-b-blue-500 hover:shadow-md transition-shadow">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest">Total Orders</h3>
-          <p className="text-4xl font-black text-slate-800 mt-3">
-            {loading ? "..." : stats.total_orders.toLocaleString()}
-          </p>
-          <div className="mt-4 flex items-center text-blue-600 text-xs font-bold">
-            <span>Completed & Processing</span>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-red-100 transition-all group">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-gray-500 text-sm font-medium">Total Orders</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">
+                {loading ? "..." : stats.total_orders.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-gray-500 text-xs">
+            <span className="text-red-600 font-medium mr-1">All</span> completed & processing
           </div>
         </div>
 
         {/* Total Customers Card */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 border-b-4 border-b-purple-500 hover:shadow-md transition-shadow">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest">Active Customers</h3>
-          <p className="text-4xl font-black text-slate-800 mt-3">
-            {loading ? "..." : stats.total_customers.toLocaleString()}
-          </p>
-          <div className="mt-4 flex items-center text-purple-600 text-xs font-bold">
-            <span>Registered Users</span>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-red-100 transition-all group">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-gray-500 text-sm font-medium">Active Customers</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">
+                {loading ? "..." : stats.total_customers.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+              <Users className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-gray-500 text-xs">
+            <span className="text-red-600 font-medium mr-1">Total</span> registered users
           </div>
         </div>
 
       </div>
 
       {/* Placeholder for future charts or Recent Activity */}
-      <div className="mt-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+      <div className="mt-8 bg-gray-50/50 border border-dashed border-gray-300 rounded-xl p-12 text-center flex flex-col items-center justify-center space-y-3">
+        <div className="p-4 bg-white rounded-full shadow-sm border border-gray-100">
+            <Activity className="w-6 h-6 text-gray-300" />
+        </div>
+        <p className="text-gray-500 font-medium text-sm">
           Recent Activity & Analytics Coming Soon
         </p>
       </div>

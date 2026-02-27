@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Download, IndianRupee, ShoppingCart, Loader2 } from "lucide-react";
 
 export default function AdminSalesPage() {
   // ✅ FIX: Initialize state with default structure so .map() and .summary never fail
@@ -74,114 +75,143 @@ export default function AdminSalesPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      
+      {/* Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800">Sales Overview</h1>
-          <p className="text-slate-500 font-medium">Track your revenue and order volume across outlets.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sales Overview</h1>
+          <p className="text-sm text-gray-500 mt-1">Track your revenue and order volume across outlets.</p>
         </div>
         <button 
           onClick={exportToCSV}
           disabled={data.orders.length === 0}
-          className="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-50 hover:text-gray-900 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
         >
-          📥 Export CSV Report
+          <Download className="w-4 h-4" />
+          Export CSV
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 border-l-8 border-l-green-500">
-          <p className="text-gray-400 text-xs font-black uppercase tracking-widest">Total Revenue</p>
-          <p className="text-4xl font-black text-slate-800 mt-2">
-            ₹{loading ? "..." : (data.summary?.total_revenue || 0).toLocaleString()}
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group">
+          <div>
+            <p className="text-gray-500 text-sm font-medium">Total Revenue</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1 tracking-tight">
+              ₹{loading ? "..." : (data.summary?.total_revenue || 0).toLocaleString()}
+            </p>
+          </div>
+          <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+             <IndianRupee className="w-6 h-6" />
+          </div>
         </div>
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 border-l-8 border-l-blue-500">
-          <p className="text-gray-400 text-xs font-black uppercase tracking-widest">Orders Count</p>
-          <p className="text-4xl font-black text-slate-800 mt-2">
-            {loading ? "..." : data.summary?.total_orders || 0}
-          </p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
-        <div className="flex-1 min-w-[200px] space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Select Outlet</label>
-          <select 
-            onChange={(e) => setFilters({...filters, outlet_id: e.target.value, page: 1})}
-            className="w-full border bg-slate-50 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-green-500 appearance-none"
-          >
-            <option value="">All Shops</option>
-            {outlets.map(o => <option key={o.id} value={o.id}>{o.outlet_name}</option>)}
-          </select>
-        </div>
-
-        <div className="flex-1 min-w-[200px] space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Specific Date</label>
-          <input 
-            type="date" 
-            onChange={(e) => setFilters({...filters, date: e.target.value, page: 1})}
-            className="w-full border bg-slate-50 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-green-500"
-          />
-        </div>
-
-        <div className="flex-1 min-w-[200px] space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Filter by Month</label>
-          <select 
-            onChange={(e) => setFilters({...filters, month: e.target.value, page: 1})}
-            className="w-full border bg-slate-50 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-green-500 appearance-none"
-          >
-            <option value="">Full Year</option>
-            {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, i) => (
-              <option key={m} value={i + 1}>{m}</option>
-            ))}
-          </select>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between group">
+          <div>
+            <p className="text-gray-500 text-sm font-medium">Orders Count</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1 tracking-tight">
+              {loading ? "..." : data.summary?.total_orders || 0}
+            </p>
+          </div>
+           <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+             <ShoppingCart className="w-6 h-6" />
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+      {/* Filters Container */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* Outlet Filter */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-gray-500">Select Outlet</label>
+            <select 
+              onChange={(e) => setFilters({...filters, outlet_id: e.target.value, page: 1})}
+              className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2.5 outline-none transition-colors"
+            >
+              <option value="">All Shops</option>
+              {outlets.map(o => <option key={o.id} value={o.id}>{o.outlet_name}</option>)}
+            </select>
+          </div>
+
+          {/* Date Filter */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-gray-500">Specific Date</label>
+            <input 
+              type="date" 
+              onChange={(e) => setFilters({...filters, date: e.target.value, page: 1})}
+              className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2.5 outline-none transition-colors"
+            />
+          </div>
+
+          {/* Month Filter */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-gray-500">Filter by Month</label>
+            <select 
+              onChange={(e) => setFilters({...filters, month: e.target.value, page: 1})}
+              className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2.5 outline-none transition-colors"
+            >
+              <option value="">Full Year</option>
+              {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, i) => (
+                <option key={m} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/50 border-b">
-              <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <th className="p-6">Order Number</th>
-                <th className="p-6">Customer</th>
-                <th className="p-6">Amount</th>
-                <th className="p-6 text-center">Status</th>
-                <th className="p-6 text-right">Date</th>
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-200">
+              <tr>
+                <th scope="col" className="px-6 py-4 font-medium">Order Number</th>
+                <th scope="col" className="px-6 py-4 font-medium">Customer</th>
+                <th scope="col" className="px-6 py-4 font-medium">Amount</th>
+                <th scope="col" className="px-6 py-4 font-medium text-center">Status</th>
+                <th scope="col" className="px-6 py-4 font-medium text-right">Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-20 text-center">
-                    <div className="inline-block w-8 h-8 border-4 border-slate-200 border-t-green-500 rounded-full animate-spin"></div>
-                    <p className="mt-4 text-xs font-black text-slate-400 uppercase tracking-widest">Loading Sales Data...</p>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <Loader2 className="w-8 h-8 text-red-500 animate-spin mx-auto" />
+                    <p className="mt-3 text-sm text-gray-500 font-medium">Loading sales data...</p>
                   </td>
                 </tr>
               ) : data.orders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-20 text-center text-slate-400 font-bold">
-                    No orders found for this selection.
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <p className="text-sm text-gray-500 font-medium">No orders found for these filters.</p>
                   </td>
                 </tr>
               ) : (
                 data.orders.map((o: any) => (
-                  <tr key={o.order_number} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="p-6 font-black text-slate-700">{o.order_number}</td>
-                    <td className="p-6 font-bold text-slate-600">{o.customer}</td>
-                    <td className="p-6 font-black text-green-700 text-lg">₹{o.amount}</td>
-                    <td className="p-6 text-center">
-                       <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase border ${
-                         o.status === 'delivered' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-yellow-50 text-yellow-600 border-yellow-100'
+                  <tr key={o.order_number} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      {o.order_number}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {o.customer}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">
+                      ₹{o.amount}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                         o.status.toLowerCase() === 'delivered' 
+                         ? 'bg-green-50 text-green-700 border-green-200' 
+                         : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                        }`}>
                          {o.status}
                        </span>
                     </td>
-                    <td className="p-6 text-sm text-slate-400 font-bold text-right">{o.date}</td>
+                    <td className="px-6 py-4 text-gray-500 text-right whitespace-nowrap">
+                      {o.date}
+                    </td>
                   </tr>
                 ))
               )}
@@ -190,28 +220,29 @@ export default function AdminSalesPage() {
         </div>
 
         {/* Pagination Controls */}
-        <div className="p-6 border-t flex flex-col md:flex-row justify-between items-center bg-slate-50/30 gap-4">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Showing Page {filters.page} of {data.pagination?.last_page || 1}
+        <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50 gap-4">
+          <span className="text-sm text-gray-500">
+            Showing Page <span className="font-medium text-gray-900">{filters.page}</span> of <span className="font-medium text-gray-900">{data.pagination?.last_page || 1}</span>
           </span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <button 
               disabled={filters.page === 1 || loading}
               onClick={() => setFilters({...filters, page: filters.page - 1})}
-              className="px-6 py-2 bg-white border rounded-xl font-bold text-xs hover:bg-slate-50 transition-all disabled:opacity-30 active:scale-95"
+              className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
             <button 
               disabled={filters.page >= (data.pagination?.last_page || 1) || loading}
               onClick={() => setFilters({...filters, page: filters.page + 1})}
-              className="px-6 py-2 bg-slate-800 text-white rounded-xl font-bold text-xs hover:bg-black transition-all disabled:opacity-30 active:scale-95"
+              className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
           </div>
         </div>
       </div>
+
     </div>
   );
 }

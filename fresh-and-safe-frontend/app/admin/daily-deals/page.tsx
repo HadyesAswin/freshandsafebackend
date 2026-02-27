@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // 👈 Important for navigation
+import { useRouter } from "next/navigation";
+import { Plus, Pencil, Trash2, Zap, Image as ImageIcon, Tag } from "lucide-react";
 
 export default function DailyDealsListPage() {
   const [deals, setDeals] = useState([]);
-  const router = useRouter(); // 👈 Initialize the router
+  const router = useRouter();
 
   const fetchDeals = async () => {
     try {
@@ -29,86 +30,122 @@ export default function DailyDealsListPage() {
       await axios.delete(`http://localhost:8000/api/v1/daily-deals/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchDeals(); // Refresh list after delete
+      fetchDeals();
     } catch (err) {
       alert("Error deleting deal");
     }
   };
 
-  // ✅ THE EDIT FUNCTION
   const handleEdit = (dealId: number) => {
-    // This pushes the user to the Add Page, but with an ID attached.
-    // The Add Page detects this ID and switches to "Edit Mode".
     router.push(`/admin/daily-deals/add?id=${dealId}`);
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Daily Deals Management</h1>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      
+      {/* Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Zap className="w-6 h-6 text-red-600 fill-red-600" />
+            Daily Deals
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Manage time-limited offers and special product discounts.</p>
+        </div>
         <Link 
           href="/admin/daily-deals/add" 
-          className="bg-orange-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 shadow-md transition-transform active:scale-95"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-700 transition-all shadow-sm active:scale-[0.98]"
         >
-          + Create New Deal
+          <Plus className="w-4 h-4" />
+          Create New Deal
         </Link>
       </div>
 
+      {/* Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {deals.map((deal: any) => (
-          <div key={deal.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex items-start space-x-4 hover:shadow-lg transition-shadow">
-            
-            {/* Product Image Preview */}
-            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border">
-                {deal.product?.image ? (
-                  <img 
-                    src={`http://localhost:8000${deal.product.image}`} 
-                    alt={deal.product.name}
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs text-center p-1">No Image</div>
+        {deals.length > 0 ? (
+          deals.map((deal: any) => {
+            // Calculate discount percentage for a better "Deal" look
+            const discount = deal.product?.price 
+              ? Math.round(((deal.product.price - deal.offer_price) / deal.product.price) * 100) 
+              : 0;
+
+            return (
+              <div key={deal.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                {discount > 0 && (
+                  <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-tighter">
+                    {discount}% OFF
+                  </div>
                 )}
-            </div>
 
-            {/* Deal Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-slate-800 truncate" title={deal.product?.name}>
-                {deal.product?.name || `Product ID: ${deal.product_id}`}
-              </h3>
-              
-              <div className="flex items-baseline space-x-2 mt-1">
-                <span className="text-gray-400 line-through text-sm">
-                  ₹{deal.product?.price}
-                </span>
-                <span className="text-orange-600 font-bold text-lg">
-                  ₹{deal.offer_price}
-                </span>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-3 mt-3">
-                <button 
-                  onClick={() => handleEdit(deal.id)} 
-                  className="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                >
-                  Edit
-                </button>
-                <button 
-                  onClick={() => handleDelete(deal.id)} 
-                  className="text-sm font-bold text-red-500 hover:text-red-700 hover:underline"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+                <div className="flex items-start space-x-4">
+                  {/* Product Image Preview */}
+                  <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 group-hover:border-red-100 transition-colors">
+                      {deal.product?.image ? (
+                        <img 
+                          src={`http://localhost:8000${deal.product.image}`} 
+                          alt={deal.product.name}
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                          <ImageIcon className="w-6 h-6 text-gray-300" />
+                        </div>
+                      )}
+                  </div>
 
-        {deals.length === 0 && (
-          <div className="col-span-3 text-center py-12 bg-gray-50 rounded-xl border-dashed border-2 border-gray-200">
-            <p className="text-gray-500 font-medium">No deals active right now.</p>
-            <p className="text-sm text-gray-400 mt-1">Click "Create New Deal" to get started.</p>
+                  {/* Deal Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate pr-10" title={deal.product?.name}>
+                      {deal.product?.name || `Product ID: ${deal.product_id}`}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-red-600 font-bold text-xl">
+                        ₹{deal.offer_price}
+                      </span>
+                      <span className="text-gray-400 line-through text-xs font-medium">
+                        {deal.product?.price}
+                      </span>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1 mt-4">
+                      <button 
+                        onClick={() => handleEdit(deal.id)} 
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600 border border-gray-100 rounded-md transition-all"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(deal.id)} 
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600 border border-gray-100 rounded-md transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="col-span-full py-16 bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center space-y-3">
+             <div className="p-4 bg-gray-50 rounded-full">
+                <Tag className="w-8 h-8 text-gray-300" />
+             </div>
+             <div className="text-center">
+                <p className="text-gray-900 font-semibold">No active deals</p>
+                <p className="text-sm text-gray-500">Create your first daily deal to see it here.</p>
+             </div>
+             <Link 
+              href="/admin/daily-deals/add" 
+              className="text-red-600 font-bold text-sm hover:underline"
+            >
+              + Create New Deal
+            </Link>
           </div>
         )}
       </div>

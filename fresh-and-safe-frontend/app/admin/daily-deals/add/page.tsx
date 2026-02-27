@@ -2,16 +2,24 @@
 import { useState, useEffect, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  ArrowLeft, 
+  Zap, 
+  IndianRupee, 
+  ShoppingBag, 
+  Loader2, 
+  Save, 
+  CheckCircle2 
+} from "lucide-react";
 
 function DealFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editingId = searchParams.get("id"); // URL ?id=123
+  const editingId = searchParams.get("id"); 
   
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   
-  // State matches the backend schema
   const [formData, setFormData] = useState({
     product_id: "",
     offer_price: ""
@@ -27,7 +35,6 @@ function DealFormContent() {
   // 2. Fetch Deal Data if Editing
   useEffect(() => {
     if (editingId) {
-      // We fetch all deals and find the one we need (Simple method)
       axios.get("http://localhost:8000/api/v1/daily-deals/")
         .then(res => {
           const deal = res.data.find((d: any) => d.id === parseInt(editingId));
@@ -46,7 +53,6 @@ function DealFormContent() {
     setLoading(true);
     const token = localStorage.getItem("token");
 
-    // Convert strings to numbers for backend
     const payload = {
         product_id: parseInt(formData.product_id),
         offer_price: parseFloat(formData.offer_price)
@@ -54,12 +60,10 @@ function DealFormContent() {
 
     try {
       if (editingId) {
-        // UPDATE MODE (PUT)
         await axios.put(`http://localhost:8000/api/v1/daily-deals/${editingId}`, payload, {
            headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        // CREATE MODE (POST)
         await axios.post("http://localhost:8000/api/v1/daily-deals/", payload, {
            headers: { Authorization: `Bearer ${token}` }
         });
@@ -74,50 +78,122 @@ function DealFormContent() {
     }
   };
 
+  // Reusable styling
+  const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
+  const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
+
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <div className="flex items-center mb-8 space-x-4">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-black font-medium">← Back</button>
-        <h1 className="text-2xl font-bold text-slate-800">{editingId ? "Edit Deal" : "Create New Deal"}</h1>
+    <div className="max-w-2xl mx-auto pb-12 animate-in fade-in duration-500">
+      
+      {/* Header Area */}
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Zap className="w-6 h-6 text-red-600 fill-red-600" />
+            {editingId ? "Edit Daily Deal" : "Create New Deal"}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {editingId ? "Modify the existing offer price for this product." : "Select a product and set an attractive offer price."}
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg space-y-6 border-t-4 border-orange-500">
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
         
-        {/* Product Dropdown */}
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Select Product</label>
-          <select 
-            value={formData.product_id} 
-            onChange={e => setFormData({...formData, product_id: e.target.value})} 
-            className="w-full border p-3 rounded-lg bg-white"
-            required
+        {/* Product Selection */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-gray-900 font-semibold border-b border-gray-50 pb-2">
+            <ShoppingBag className="w-4 h-4 text-red-500" />
+            <h2>Product Selection</h2>
+          </div>
+          
+          <div>
+            <label className={labelClass}>Select Product</label>
+            <div className="relative">
+              <select 
+                value={formData.product_id} 
+                onChange={e => setFormData({...formData, product_id: e.target.value})} 
+                className={`${inputClass} appearance-none pr-10`}
+                required
+              >
+                <option value="">-- Choose a Product --</option>
+                {products.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} (MRP: ₹{p.price})
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                <ArrowLeft className="w-4 h-4 -rotate-90" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing Area */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-gray-900 font-semibold border-b border-gray-50 pb-2">
+            <IndianRupee className="w-4 h-4 text-red-500" />
+            <h2>Pricing Details</h2>
+          </div>
+
+          <div className="bg-red-50/50 p-6 rounded-xl border border-red-100 space-y-4">
+            <div>
+              <label className={labelClass}>New Offer Price (₹)</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                  <IndianRupee className="w-4 h-4" />
+                </span>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.offer_price} 
+                  onChange={e => setFormData({...formData, offer_price: e.target.value})} 
+                  className={`${inputClass} pl-10 text-lg font-bold text-red-600`} 
+                  placeholder="0.00"
+                  required 
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-2 italic font-medium">
+                * This price will overwrite the current selling price on the "Daily Deals" section.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <option value="">-- Choose a Product --</option>
-            {products.map((p: any) => (
-                <option key={p.id} value={p.id}>
-                    {p.name} (Original: ₹{p.price})
-                </option>
-            ))}
-          </select>
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-8 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                {editingId ? <Save className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                {editingId ? "Update Deal" : "Activate Deal"}
+              </>
+            )}
+          </button>
         </div>
-
-        {/* Offer Price Input */}
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Offer Price (₹)</label>
-          <input 
-            type="number" 
-            step="0.01"
-            value={formData.offer_price} 
-            onChange={e => setFormData({...formData, offer_price: e.target.value})} 
-            className="w-full border p-3 rounded-lg font-mono text-lg" 
-            placeholder="e.g. 99.00"
-            required 
-          />
-        </div>
-
-        <button type="submit" disabled={loading} className="w-full py-4 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600 shadow-lg transition-all">
-          {loading ? "Saving..." : editingId ? "Update Deal" : "Activate Deal"}
-        </button>
       </form>
     </div>
   );
@@ -125,7 +201,12 @@ function DealFormContent() {
 
 export default function AddDealPage() {
   return (
-    <Suspense fallback={<div>Loading form...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
+        <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+        <p className="text-sm font-medium">Loading form...</p>
+      </div>
+    }>
       <DealFormContent />
     </Suspense>
   );
