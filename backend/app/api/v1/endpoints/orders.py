@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
-from app.models import Order, OrderItem, Product, OrderStatus, PaymentStatus, UserAddress
-# ✅ Imported AddressUpdate here
+from app.models import Order, OrderItem, Product, OrderStatus, PaymentStatus, UserAddress, Outlet
 from app.schemas.order import OrderCreate, OrderResponse, AddressUpdate 
+from app.services.qwqer_service import QwqerService
+
 import uuid
 import datetime
 
 router = APIRouter()
+qwqer_api = QwqerService()
 
 def generate_order_number():
     date_str = datetime.datetime.now().strftime("%Y%m%d")
@@ -71,8 +73,8 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         payment_method=order_data.payment_method,
         coupon_code=order_data.coupon_code,
         customer_note=order_data.customer_note,
-        order_status=OrderStatus.PENDING,
-        payment_status=PaymentStatus.PENDING
+        order_status=OrderStatus.CONFIRMED, # Automatically confirm it
+        payment_status=PaymentStatus.PAID   # Automatically mark as paid
     )
 
     db.add(new_order)
@@ -189,3 +191,151 @@ def update_user_address(address_id: int, addr_data: AddressUpdate, db: Session =
     
     db.commit()
     return {"message": "Address updated successfully"}
+
+
+# ==========================================
+# 6. QWQER LOGISTICS: DISPATCH ORDER
+# ==========================================
+@router.post("/{order_id}/dispatch")
+def dispatch_order_to_qwqer(order_id: int, db: Session = Depends(get_db)):
+    """Assigns a packed order to a QWQER delivery rider."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    if order.qwqer_order_id:
+        raise HTTPException(status_code=400, detail="Order already dispatched to QWQER")
+
+    outlet = db.query(Outlet).filter(Outlet.id == order.outlet_id).first()
+
+    # 1. Call QWQER API
+    qwqer_response = qwqer_api.create_delivery_order(outlet, order)
+
+    # 2. Handle the response
+    if qwqer_response.get("is_success") == True:
+        data = qwqer_response["data"]
+        
+        # 3. Update database with QWQER details
+        order.qwqer_order_id = data.get("order_key")
+        order.qwqer_status = "Accepted"
+        order.order_status = OrderStatus.OUT_FOR_DELIVERY
+        order.qwqer_assigned_at = datetime.datetime.utcnow()
+        
+        db.commit()
+        db.refresh(order)
+        
+        return {"message": "Delivery dispatched successfully", "qwqer_details": data}
+    else:
+        # Pass the exact error from QWQER to the frontend
+        raise HTTPException(status_code=400, detail=f"QWQER Integration failed: {qwqer_response.get('error') or qwqer_response}")
+
+# ==========================================
+# 7. QWQER LOGISTICS: TRACK ORDER
+# ==========================================
+@router.get("/{order_id}/track")
+def get_qwqer_tracking(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or not order.qwqer_order_id:
+        raise HTTPException(status_code=404, detail="No QWQER delivery assigned")
+
+    tracking_data = qwqer_api.track_order(order.qwqer_order_id)
+    
+    # ✅ THE BUG FIX: Checking 'is_success' instead of 'message'
+    if tracking_data.get("is_success") is True and tracking_data.get("data"):
+        raw_status = tracking_data["data"].get("status", "")
+        safe_status = raw_status.upper().strip()
+        
+        # 1. Always update the raw status from QWQER
+        order.qwqer_status = raw_status
+        
+        # 2. Force the mapping to your internal OrderStatus Enum
+        if safe_status == "DELIVERED":
+            order.order_status = OrderStatus.DELIVERED
+            if not order.delivered_at:
+                order.delivered_at = datetime.datetime.utcnow()
+        elif safe_status in ["CANCELLED", "RETURNED", "UNDELIVERED"]:
+            order.order_status = OrderStatus.CANCELLED
+        
+        # 3. Commit the changes
+        db.commit()
+
+    return tracking_data
+
+# ==========================================
+# 8. QWQER LOGISTICS: CANCEL DELIVERY
+# ==========================================
+@router.post("/{order_id}/cancel-delivery")
+def cancel_qwqer_delivery(order_id: int, reason_code: int = 1, db: Session = Depends(get_db)):
+    """Cancels the delivery rider in QWQER."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or not order.qwqer_order_id:
+        raise HTTPException(status_code=404, detail="No QWQER delivery assigned")
+
+    cancel_response = qwqer_api.cancel_order(order.qwqer_order_id, reason_code=reason_code)
+    
+    if cancel_response.get("is_success") == True:
+        order.qwqer_status = "Cancelled"
+        order.order_status = OrderStatus.CANCELLED
+        db.commit()
+        return {"message": "Delivery cancelled successfully"}
+    
+    raise HTTPException(status_code=400, detail="Failed to cancel delivery in QWQER")
+
+# ==========================================
+# 9. QWQER LOGISTICS: WEBHOOK RECEIVER
+# ==========================================
+@router.post("/qwqer-webhook")
+async def qwqer_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    Receives automatic updates from QWQER when a driver updates the order status.
+    """
+    try:
+        # 1. Parse the incoming webhook payload
+        payload = await request.json()
+        order_key = payload.get("order_key")
+        
+        if not order_key:
+            return {"status": "ignored", "reason": "No order_key found in payload"}
+            
+        # 2. Find the matching order in your database (safe string conversion)
+        order = db.query(Order).filter(Order.qwqer_order_id == str(order_key)).first()
+        if not order:
+            return {"status": "ignored", "reason": f"Order {order_key} not found in system"}
+
+        # 3. Security Check: Fetch the verified status directly from QWQER
+        tracking_data = qwqer_api.track_order(order_key)
+        
+        # ✅ THE BUG FIX: Checking 'is_success' instead of 'message'
+        if tracking_data.get("is_success") is True and tracking_data.get("data"):
+            # Get the exact string from QWQER
+            raw_qwqer_status = tracking_data["data"].get("status", "")
+            
+            # 4. Update the exact QWQER status for admin visibility
+            order.qwqer_status = raw_qwqer_status
+            
+            # Force it to uppercase and remove sneaky spaces for safe comparison
+            safe_status = raw_qwqer_status.upper().strip()
+            
+            # 5. Map QWQER's status to your system's OrderStatus Enum
+            if safe_status == "ACCEPTED":
+                order.order_status = OrderStatus.PREPARING 
+                
+            elif safe_status == "PICKED UP":
+                order.order_status = OrderStatus.OUT_FOR_DELIVERY
+                
+            elif safe_status == "DELIVERED":
+                order.order_status = OrderStatus.DELIVERED
+                if not order.delivered_at:
+                    order.delivered_at = datetime.datetime.utcnow()
+                
+            elif safe_status in ["CANCELLED", "CANCELED", "RETURNED", "UNDELIVERED", "RETURNED TO WAREHOUSE", "RETURNED TO SENDER", "RETURNED TO ANOTHER ADDRESS"]:
+                order.order_status = OrderStatus.CANCELLED
+
+            db.commit()
+            return {"status": "success", "mapped_status": order.order_status}
+            
+        return {"status": "failed", "reason": "Could not verify tracking data"}
+
+    except Exception as e:
+        print(f"WEBHOOK ERROR: {str(e)}") # Helpful to print the error in your terminal!
+        return {"status": "error", "message": str(e)}

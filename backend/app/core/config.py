@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
 
+    # SMTP_SERVER: str = "smtp.gmail.com"
+    # SMTP_PORT: int = 587
+    # SMTP_USERNAME: str = "etournament49@gmail.com"
+    # SMTP_PASSWORD: str = "ojdx cilt szko apwu"
+
+    # --- QWQER LOGISTICS (NEW) ---
+    # These will be used by your QwqerService
+    QWQER_API_URL: str = "https://stage-api.qwqer.in/v2/" 
+    QWQER_CLIENT_SECRET: str = "5uPZIT5GZKwom82dUbZKSAMRC3DrPglXas0ApMFvMptXMQJiEIImzxMFKKzQRqgM"
+
     # Database URL Builder
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
