@@ -446,6 +446,7 @@ class Order(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     delivered_at = Column(DateTime(timezone=True), nullable=True)
+    delivery_house_number = Column(String, nullable=True)
 
     # Relationships
     user = relationship("User", backref="orders")
