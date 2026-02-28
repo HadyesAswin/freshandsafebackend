@@ -85,7 +85,7 @@ function ProductFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     const data = new FormData();
     data.append("category_id", String(categoryId));

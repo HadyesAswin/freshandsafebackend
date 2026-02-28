@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -36,17 +36,39 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // ✅ ADDED: isMounted state to prevent Next.js Server-Side Rendering (SSR) flashes
+  const [isMounted, setIsMounted] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // ✅ THE SECURITY GUARD: Checks token on mount AND on every URL change
+  useEffect(() => {
+    setIsMounted(true); // Tells the app we are safely in the browser now
+
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      setIsAuthorized(false);
+      // Immediately destroy history and kick to login
+      router.replace("/login"); 
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [pathname, router]); // <-- Added 'pathname' so it checks every time the URL changes
 
   const handleLogout = () => {
-    // Add confirmation prompt
     const confirmLogout = window.confirm("Are you sure you want to logout?");
     
-    // Only proceed if the user clicks "OK"
     if (confirmLogout) {
-      localStorage.removeItem("token");
-      router.push("/login");
+      localStorage.removeItem("admin_token"); 
+      router.replace("/login"); 
     }
   };
+
+  // ✅ STRICT RETURN: Returns absolutely nothing until the browser verifies the token.
+  // This completely kills the bug where navigating directly to /admin/coupons loads the page.
+  if (!isMounted || !isAuthorized) {
+    return null;
+  }
 
   // ✅ Kept exact same routes and names, swapped emojis for minimal Lucide icons
   const navItems = [

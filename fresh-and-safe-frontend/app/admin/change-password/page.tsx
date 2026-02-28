@@ -32,7 +32,7 @@ export default function AdminChangePasswordPage() {
     setMessage(null);
     setLoading(true);
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     if (!token) {
         router.push("/login");
         return;

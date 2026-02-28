@@ -32,12 +32,14 @@ export default function LoginPage() {
       });
 
       // 3. Success
-      localStorage.setItem("token", response.data.access_token);
+      // ✅ CHANGED: Save specifically as "admin_token"
+      localStorage.setItem("admin_token", response.data.access_token);
       setStatus("✅ Success! Redirecting...");
       
       // Short delay to let user see success message before redirect
       setTimeout(() => {
-        router.push("/admin");
+        // ✅ CHANGED: Use replace() instead of push() to destroy browser history
+        router.replace("/admin");
       }, 500);
 
     } catch (err: any) {

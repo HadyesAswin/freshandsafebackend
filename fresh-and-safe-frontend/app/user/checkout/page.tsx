@@ -29,7 +29,9 @@ export default function CheckoutPage() {
 
   // Totals & Discounts
   const [discount, setDiscount] = useState({ code: "", amount: 0 });
-  const [outletId, setOutletId] = useState<number>(1); 
+  
+  // ✅ FIX: Default to 2 (Aroor branch) to prevent DB crash if local storage is empty
+  const [outletId, setOutletId] = useState<number>(2); 
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -51,6 +53,12 @@ export default function CheckoutPage() {
     const storedZip = localStorage.getItem("zipcode");
     const storedDiscount = localStorage.getItem("checkout_discount");
     const storedUser = localStorage.getItem("user");
+    
+    // ✅ FIX: Dynamically check if the user selected a specific shop earlier
+    const storedOutlet = localStorage.getItem("outlet_id") || localStorage.getItem("selectedOutlet");
+    if (storedOutlet) {
+      setOutletId(parseInt(storedOutlet, 10));
+    }
 
     if (!storedCart || JSON.parse(storedCart).length === 0) {
       router.push("/user/cart");
@@ -100,7 +108,7 @@ export default function CheckoutPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Maps a saved DB address to the form data state
+  // Maps a saved DB address to the form data state
   const handleSelectAddress = (addr: any) => {
     setSelectedAddressId(addr.id);
     setUseNewAddress(false);
@@ -147,7 +155,7 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     const orderPayload = {
-      outlet_id: outletId,
+      outlet_id: outletId, // ✅ This will now safely send 2 (or whatever is in localStorage)
       user_id: user ? user.id : null,
       
       customer_name: `${formData.firstName} ${formData.lastName}`.trim(),
@@ -232,7 +240,7 @@ export default function CheckoutPage() {
               
               {!user && (
                  <div className="bg-blue-50 text-blue-800 p-4 rounded-lg text-sm mb-4">
-                    Checking out as a guest. <span className="font-bold cursor-pointer underline" onClick={() => router.push('/')}>Log in</span> for faster checkout and to save your addresses!
+                   Checking out as a guest. <span className="font-bold cursor-pointer underline" onClick={() => router.push('/')}>Log in</span> for faster checkout and to save your addresses!
                  </div>
               )}
 

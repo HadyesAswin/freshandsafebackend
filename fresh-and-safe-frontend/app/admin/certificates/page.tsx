@@ -32,7 +32,7 @@ export default function CertificatesPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this certificate?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     try {
       await axios.delete(

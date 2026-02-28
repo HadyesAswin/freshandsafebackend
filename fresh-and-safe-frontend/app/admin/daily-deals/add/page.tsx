@@ -51,7 +51,7 @@ function DealFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     const payload = {
         product_id: parseInt(formData.product_id),

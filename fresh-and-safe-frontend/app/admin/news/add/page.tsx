@@ -56,7 +56,7 @@ function NewsFormContent() {
     e.preventDefault();
     setLoading(true);
     
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     const data = new FormData();
     data.append("title", formData.title);

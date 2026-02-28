@@ -29,7 +29,7 @@ function MarqueeFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       const url = editingId ? `http://localhost:8000/api/v1/marquee/${editingId}` : "http://localhost:8000/api/v1/marquee/";
       await axios({ 

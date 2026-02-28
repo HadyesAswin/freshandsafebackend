@@ -54,7 +54,7 @@ function OutletFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     // Prepare payload
     const payload: any = { ...formData };
