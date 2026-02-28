@@ -2,6 +2,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { 
+  Truck, 
+  RefreshCw, 
+  Loader2, 
+  PackageOpen, 
+  ChevronRight, 
+  ChevronLeft 
+} from "lucide-react";
 
 export default function OutForDeliveryPage() {
   const router = useRouter();
@@ -55,103 +63,122 @@ export default function OutForDeliveryPage() {
   }, [page]);
 
   return (
-    <div className="space-y-8 p-4 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Out For Delivery Orders
-        </h1>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      
+      {/* Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Truck className="w-6 h-6 text-red-600" />
+            Out For Delivery
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Track orders currently dispatched to customers.</p>
+        </div>
 
         <button
           onClick={() => fetchOrders()}
-          className="text-sm text-blue-600 hover:underline"
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
         >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-red-600' : 'text-gray-400'}`} />
           Refresh List
         </button>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden border">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4">Order #</th>
-              <th className="p-4">Items</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
+      {/* Table Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-200">
               <tr>
-                <td colSpan={4} className="p-10 text-center">
-                  Loading...
-                </td>
+                <th scope="col" className="px-6 py-4 font-medium">Order #</th>
+                <th scope="col" className="px-6 py-4 font-medium">Items</th>
+                <th scope="col" className="px-6 py-4 font-medium">Status</th>
+                <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
-            ) : orders.length > 0 ? (
-              orders.map((order: any) => (
-                <tr key={order.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4 font-bold text-purple-700">
-                    {order.order_number}
-                  </td>
+            </thead>
 
-                  <td className="p-4 text-sm text-gray-600">
-                    {order.order_items
-                      ?.map(
-                        (i: any) =>
-                          `${i.product?.name} (x${i.quantity})`
-                      )
-                      .join(", ")}
-                  </td>
-
-                  <td className="p-4">
-                    <span className="px-2 py-1 text-xs rounded-full uppercase font-medium bg-purple-100 text-purple-700">
-                      Out For Delivery
-                    </span>
-                  </td>
-
-                  <td className="p-4 text-right">
-                    <Link
-                      href={`/outlet-home/orders/${order.id}`}
-                      className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-200"
-                    >
-                      Details
-                    </Link>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500 font-medium">Loading delivery routes...</p>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="p-10 text-center text-gray-500"
-                >
-                  No delivery orders.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : orders.length > 0 ? (
+                orders.map((order: any) => (
+                  <tr key={order.id} className="hover:bg-gray-50 transition-colors group align-middle">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-gray-900 tracking-tight">
+                        #{order.order_number}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 max-w-md">
+                      <div className="text-sm text-gray-600 truncate">
+                        {order.order_items
+                          ?.map(
+                            (i: any) =>
+                              `${i.product?.name || "Product"} (x${i.quantity})`
+                          )
+                          .join(", ")}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border bg-purple-50 text-purple-700 border-purple-200">
+                        Out For Delivery
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end">
+                        <Link
+                          href={`/outlet-home/orders/${order.id}`}
+                          className="flex items-center gap-1 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          Details
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center">
+                    <PackageOpen className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500 font-medium">No orders are currently out for delivery.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* PAGINATION */}
-        <div className="flex justify-between items-center p-4 border-t">
+        <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/50">
           <button
             onClick={() => setPage((p) => Math.max(p - 1, 1))}
             disabled={page === 1}
-            className="bg-gray-200 px-4 py-2 rounded disabled:opacity-50"
+            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:pointer-events-none shadow-sm"
           >
+            <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
 
-          <span className="text-sm text-gray-600">
+          <span className="text-sm font-medium text-gray-500">
             Page {page}
           </span>
 
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasNextPage}
-            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:pointer-events-none shadow-sm"
           >
             Next
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
