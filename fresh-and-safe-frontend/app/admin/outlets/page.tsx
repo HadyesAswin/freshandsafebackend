@@ -18,7 +18,7 @@ export default function OutletListPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this outlet?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     await axios.delete(`http://localhost:8000/api/v1/outlets/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
     });

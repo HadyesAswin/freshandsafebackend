@@ -32,7 +32,7 @@ export default function ContactListPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this contact section?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       await axios.delete(`http://localhost:8000/api/v1/contact/${id}`, {
         headers: { Authorization: `Bearer ${token}` }

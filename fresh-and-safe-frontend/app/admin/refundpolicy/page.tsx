@@ -29,7 +29,7 @@ export default function RefundPolicyPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this refund policy?")) return;
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     try {
       await axios.delete(

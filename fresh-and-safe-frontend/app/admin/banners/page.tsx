@@ -33,7 +33,7 @@ export default function BannersPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this banner?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     try {
       await axios.delete(

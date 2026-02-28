@@ -34,7 +34,7 @@ export default function TermsPage() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete these terms?")) return;
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     try {
       await axios.delete(

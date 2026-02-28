@@ -28,7 +28,7 @@ export default function AdminUsersPage() {
       }
 
       const res = await fetch(`http://localhost:8000/api/v1/admin/users?${queryParams.toString()}`, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+        headers: { "Authorization": `Bearer ${localStorage.getItem("admin_token")}` }
       });
       const data = await res.json();
       setUserData(data);

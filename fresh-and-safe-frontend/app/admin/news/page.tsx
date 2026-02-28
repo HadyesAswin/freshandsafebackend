@@ -29,7 +29,7 @@ export default function NewsListPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this news article?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       await axios.delete(`http://localhost:8000/api/v1/news/${id}`, {
         headers: { Authorization: `Bearer ${token}` }

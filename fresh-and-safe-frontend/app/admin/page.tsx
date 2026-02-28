@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IndianRupee, ShoppingCart, Users, Activity } from "lucide-react";
+import Link from "next/link"; // ✅ Added Link
+import { IndianRupee, ShoppingCart, Users, Activity, ExternalLink } from "lucide-react"; // ✅ Added ExternalLink icon
 
 interface DashboardStats {
   total_orders: number;
@@ -25,8 +26,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        const token = localStorage.getItem("admin_token");
+        
         const res = await fetch("http://localhost:8000/api/v1/dashboard/stats", {
-          headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+          headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();
         setStats(data);
@@ -42,13 +45,28 @@ export default function AdminDashboard() {
 
   return (
     <div className="animate-in fade-in duration-500">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-          Welcome Back, Admin!
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Here is what's happening with your store today.
-        </p>
+      
+      {/* ✅ UPDATED HEADER: Flex container to push the button to the right */}
+      <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            Welcome Back, Admin!
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Here is what's happening with your store today.
+          </p>
+        </div>
+        
+        {/* ✅ VISIT SITE BUTTON */}
+        <Link 
+          href="/" 
+          target="_blank" // Opens in a new tab
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-red-600 hover:border-red-200 hover:bg-red-50 px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm text-sm w-fit"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Visit Site
+        </Link>
       </header>
       
       {/* Updated Grid for 3 Stats Cards - Clean and Minimal */}

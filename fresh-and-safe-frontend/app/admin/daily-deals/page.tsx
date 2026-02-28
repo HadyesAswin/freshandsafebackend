@@ -25,7 +25,7 @@ export default function DailyDealsListPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to remove this deal?")) return;
     
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       await axios.delete(`http://localhost:8000/api/v1/daily-deals/${id}`, {
         headers: { Authorization: `Bearer ${token}` }

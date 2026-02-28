@@ -21,7 +21,7 @@ export default function ProductsPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this product?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     await axios.delete(
       `http://localhost:8000/api/v1/products/${id}`,

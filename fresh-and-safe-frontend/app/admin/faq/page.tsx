@@ -22,7 +22,7 @@ export default function FAQListPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this FAQ?")) return;
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       await axios.delete(`http://localhost:8000/api/v1/faq/${id}`, {
         headers: { Authorization: `Bearer ${token}` }

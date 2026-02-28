@@ -25,7 +25,7 @@ export default function CouponListPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this coupon?")) return;
     
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       await axios.delete(`http://localhost:8000/api/v1/coupons/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
