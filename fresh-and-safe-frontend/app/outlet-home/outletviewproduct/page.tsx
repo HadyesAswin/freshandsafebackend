@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { 
+  Package, 
+  Activity, 
+  Image as ImageIcon, 
+  Power, 
+  Loader2 
+} from "lucide-react";
 
 export default function OutletViewProduct() {
   const [products, setProducts] = useState<any[]>([]);
@@ -60,67 +67,104 @@ export default function OutletViewProduct() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-          Manage Shop Inventory
-          {/* Live Indicator */}
-          <span className="flex h-3 w-3 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-          </span>
-        </h1>
-        <div className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
-            Auto-updating every 5s
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      
+      {/* Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-200">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Package className="w-6 h-6 text-red-600" />
+            Manage Shop Inventory
+            {/* Premium Red Live Indicator */}
+            <span className="flex h-2.5 w-2.5 relative ml-2 mt-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+            </span>
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Control which products are visible to customers in your outlet.</p>
+        </div>
+        
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 shadow-sm">
+          <Activity className="w-3.5 h-3.5 text-red-500" /> 
+          Auto-sync active (5s)
         </div>
       </div>
 
       {loading && products.length === 0 && (
-         <div className="text-center py-12">Loading products...</div>
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+          <p className="text-sm font-medium">Loading your inventory...</p>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Products Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-2">
         {products.map((product) => (
           <div
             key={product.id}
-            className={`relative p-5 rounded-xl border-2 transition-all shadow-sm ${
-                product.is_enabled ? "border-green-500 bg-green-50/30" : "border-gray-200 bg-white"
+            className={`group relative flex flex-col bg-white p-5 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md ${
+                product.is_enabled 
+                  ? "border-gray-200" 
+                  : "border-gray-200 opacity-80 grayscale-[20%]"
             }`}
           >
-            <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold ${
-                product.is_enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-            }`}>
-                {product.is_enabled ? "LIVE" : "HIDDEN"}
+            {/* Status Badge */}
+            <div className="absolute top-4 right-4 z-10">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                product.is_enabled 
+                  ? "bg-green-50 text-green-700 border-green-200" 
+                  : "bg-gray-100 text-gray-500 border-gray-200"
+              }`}>
+                {product.is_enabled ? "Published" : "Hidden"}
+              </span>
             </div>
 
-            <div className="flex items-center gap-4 mb-4">
-                <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                    {product.image ? (
-                        <img src={`http://localhost:8000${product.image}`} alt={product.name} className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Img</div>
-                    )}
-                </div>
-                <div>
-                    <h2 className="text-lg font-bold text-slate-900 leading-tight">{product.name}</h2>
-                    <p className="text-sm text-gray-500 mt-1">{product.category_name}</p>
-                </div>
+            {/* Product Info */}
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-20 h-20 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                {product.image ? (
+                    <img 
+                      src={`http://localhost:8000${product.image}`} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                ) : (
+                    <ImageIcon className="w-6 h-6 text-gray-300" />
+                )}
+                
+                {/* Overlay if hidden */}
+                {!product.is_enabled && (
+                  <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]"></div>
+                )}
+              </div>
+              
+              <div className="flex-1 pt-1">
+                  <h2 className="text-base font-bold text-gray-900 leading-tight line-clamp-2 pr-16">
+                    {product.name}
+                  </h2>
+                  <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">
+                    {product.category_name}
+                  </p>
+                  <div className="mt-2 inline-flex items-center gap-1 font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100 text-sm">
+                    ₹{product.price}
+                  </div>
+              </div>
             </div>
 
-            <div className="flex justify-between items-center mb-4 px-1">
-                 <div className="text-sm text-gray-600">Price: <span className="font-bold text-black">₹{product.price}</span></div>
+            {/* Action Button */}
+            <div className="mt-auto pt-4 border-t border-gray-100">
+              <button
+                onClick={() => handleToggle(product.id)}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-[0.98] ${
+                  product.is_enabled
+                    ? "bg-white text-gray-600 border border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                    : "bg-red-600 text-white border border-red-600 hover:bg-red-700 shadow-sm"
+                }`}
+              >
+                <Power className="w-4 h-4" />
+                {product.is_enabled ? "Hide Product" : "Publish to Store"}
+              </button>
             </div>
-
-            <button
-              onClick={() => handleToggle(product.id)}
-              className={`w-full py-3 rounded-lg font-bold transition-colors ${
-                product.is_enabled
-                  ? "bg-red-100 text-red-600 hover:bg-red-200"
-                  : "bg-green-600 text-white hover:bg-green-700 shadow-md"
-              }`}
-            >
-              {product.is_enabled ? "Turn OFF" : "Turn ON"}
-            </button>
           </div>
         ))}
       </div>
