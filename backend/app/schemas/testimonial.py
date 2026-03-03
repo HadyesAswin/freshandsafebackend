@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -19,6 +19,4 @@ class Testimonial(TestimonialBase):
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True   # If using Pydantic v2
-        # orm_mode = True        # If using Pydantic v1
+    model_config = ConfigDict(from_attributes=True)

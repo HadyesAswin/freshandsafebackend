@@ -17,6 +17,7 @@ origins = [
     "http://172.29.240.1:3000",
     "http://192.168.1.7:3000",
     "http://10.103.74.232:3000",
+    "http://192.168.1.9:3000",
     "https://subhemispherical-fallon-fidgety.ngrok-free.dev"
 ]
 

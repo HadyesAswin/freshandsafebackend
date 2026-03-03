@@ -125,7 +125,10 @@ export default function CartPage() {
         body: JSON.stringify({
           code: couponCode,
           subtotal: subtotal,
-          product_ids: cart.map((item) => item.id),
+          items: cart.map((item) => ({
+            product_id: item.id,
+            quantity: item.quantity,
+          })),
         }),
       });
       const data = await res.json();
