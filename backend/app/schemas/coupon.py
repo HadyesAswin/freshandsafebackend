@@ -2,11 +2,15 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import List, Optional
 
-# --- Input Schemas ---
+
+# -------------------------
+# Coupon Base Schemas
+# -------------------------
+
 class CouponBase(BaseModel):
     code: str
     description: Optional[str] = None
-    discount_type: str = "fixed" # "percentage" or "fixed"
+    discount_type: str = "fixed"  # "percentage" or "fixed"
     discount_value: float
     min_order_amount: float = 0
     max_discount_amount: Optional[float] = None
@@ -14,50 +18,90 @@ class CouponBase(BaseModel):
     usage_limit_per_user: int = 1
     valid_from: datetime
     valid_to: datetime
-    applicable_type: str = "all" # "all", "category", "product"
+    applicable_type: str = "all"  # "all", "category", "product"
     status: bool = True
 
+
 class CouponCreate(CouponBase):
-    # We receive lists of IDs (e.g., [1, 2, 5])
-    category_ids: List[int] = [] 
+    category_ids: List[int] = []
     product_ids: List[int] = []
 
-class CouponUpdate(CouponBase):
+
+class CouponUpdate(BaseModel):
+    code: Optional[str] = None
+    description: Optional[str] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[float] = None
+    min_order_amount: Optional[float] = None
+    max_discount_amount: Optional[float] = None
+    total_usage_limit: Optional[int] = None
+    usage_limit_per_user: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    applicable_type: Optional[str] = None
+    status: Optional[bool] = None
     category_ids: Optional[List[int]] = None
     product_ids: Optional[List[int]] = None
 
-# --- Output Schemas ---
-# Mini schemas for nested display
+
+# -------------------------
+# Output Schemas
+# -------------------------
+
 class CategoryMini(BaseModel):
     id: int
     name: str
+
 
 class ProductMini(BaseModel):
     id: int
     name: str
 
+
 class CouponCategoryOut(BaseModel):
     category: CategoryMini
+
+
 class CouponProductOut(BaseModel):
     product: ProductMini
 
-class Coupon(CouponBase):
+
+class Coupon(BaseModel):
     id: int
+    code: str
+    description: Optional[str]
+    discount_type: str
+    discount_value: float
+    min_order_amount: float
+    max_discount_amount: Optional[float]
+    total_usage_limit: Optional[int]
+    usage_limit_per_user: int
     used_count: int
+    valid_from: datetime
+    valid_to: datetime
+    applicable_type: str
+    status: bool
     created_at: datetime
-    
-    # Return full details for display
+
     categories: List[CouponCategoryOut] = []
     products: List[CouponProductOut] = []
 
     model_config = ConfigDict(from_attributes=True)
 
-# --- Coupon Validation Schemas ---
+
+# -------------------------
+# STRICT COUPON VALIDATION SCHEMAS
+# -------------------------
+
+class CartItemData(BaseModel):
+    product_id: int
+    quantity: int
+
 
 class CouponValidateRequest(BaseModel):
     code: str
     subtotal: float
-    product_ids: List[int]
+    items: List[CartItemData]   # 🔥 STRICT MODE
     user_id: Optional[int] = None
 
 
