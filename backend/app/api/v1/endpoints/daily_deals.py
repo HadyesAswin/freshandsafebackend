@@ -43,7 +43,8 @@ def read_deals(db: Session = Depends(get_db)):
         pass
 
     # Fallback to DB
-    deals = db.query(DealModel).all()
+    # ✅ Filter out deals where the associated product has been soft-deleted
+    deals = db.query(DealModel).join(ProductModel).filter(ProductModel.is_deleted == False).all()
 
     # Store in Redis for 10 minutes
     try:
@@ -60,10 +61,10 @@ def create_deal(
     db: Session = Depends(get_db),
     current_user = Depends(deps.get_current_active_admin)
 ):
-    # 1️⃣ Verify Product Exists
-    product = db.query(ProductModel).filter(ProductModel.id == deal_in.product_id).first()
+    # 1️⃣ Verify Product Exists AND is not deleted
+    product = db.query(ProductModel).filter(ProductModel.id == deal_in.product_id, ProductModel.is_deleted == False).first()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or has been deleted")
 
     # 2️⃣ Check if product already has deal
     existing = db.query(DealModel).filter(DealModel.product_id == deal_in.product_id).first()
@@ -97,6 +98,11 @@ def update_deal(
 
     # 2️⃣ Validate product change
     if deal_in.product_id != deal.product_id:
+        # Make sure the new product isn't deleted either
+        new_product = db.query(ProductModel).filter(ProductModel.id == deal_in.product_id, ProductModel.is_deleted == False).first()
+        if not new_product:
+            raise HTTPException(status_code=404, detail="New Product not found or has been deleted")
+
         existing = db.query(DealModel).filter(DealModel.product_id == deal_in.product_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="A deal already exists for this new product")
@@ -125,6 +131,7 @@ def delete_deal(
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
+    # ✅ HARD DELETE IS PERFECTLY FINE HERE
     db.delete(deal)
     db.commit()
 

@@ -7,7 +7,6 @@ import {
   Save, 
   X, 
   PackagePlus, 
- 
   Image as ImageIcon, 
   IndianRupee, 
   Tag, 
@@ -45,7 +44,11 @@ function ProductFormContent() {
   const [comparePrice, setComparePrice] = useState<number | "">("");
   const [unit, setUnit] = useState("");
   const [description, setDescription] = useState("");
-  const [image, setImage] = useState<File | null>(null);
+  
+  // ✅ MULTIPLE IMAGES STATE
+  const [images, setImages] = useState<File[]>([]);
+  const [currentImages, setCurrentImages] = useState<string[]>([]);
+  
   const [status, setStatus] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
 
@@ -71,13 +74,19 @@ function ProductFormContent() {
           setCategoryId(product.category_id);
           setName(product.name);
           setSlug(product.slug);
-          setSlugTouched(true); 
           setPrice(product.price);
           setComparePrice(product.compare_price || "");
           setUnit(product.unit || "");
           setDescription(product.description || "");
           setStatus(product.status);
           setIsAvailable(product.is_available);
+          
+          // ✅ Load existing multiple images safely
+          if (product.images && product.images.length > 0) {
+            setCurrentImages(product.images);
+          } else if (product.image) {
+            setCurrentImages([product.image]); // Fallback for old single-image products
+          }
         }
       });
   }, [id]);
@@ -85,6 +94,7 @@ function ProductFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(""); // Clear old messages
     const token = localStorage.getItem("admin_token");
 
     const data = new FormData();
@@ -97,7 +107,13 @@ function ProductFormContent() {
     data.append("description", description);
     data.append("status", String(status));
     data.append("is_available", String(isAvailable));
-    if (image) data.append("image", image);
+    
+    // ✅ Append multiple images
+    images.forEach(img => {
+      data.append("images", img);
+    });
+    // Send array of URLs that the user kept (didn't delete)
+    data.append("existing_images", JSON.stringify(currentImages));
 
     try {
       await axios({
@@ -114,13 +130,27 @@ function ProductFormContent() {
 
       router.push("/admin/products");
     } catch (err: any) {
-      setMessage(err.response?.data?.detail || "Action failed");
+      // ✅ BUGFIX: Safely handle FastAPI's 422 array of objects
+      const detail = err.response?.data?.detail;
+      
+      if (Array.isArray(detail)) {
+        // Map through the array and extract the specific field that failed
+        const errorMessages = detail.map((d: any) => {
+          const field = d.loc[d.loc.length - 1]; // e.g. "price" or "category_id"
+          return `${field}: ${d.msg}`;
+        });
+        setMessage(`Validation Error: ${errorMessages.join(" | ")}`);
+      } else if (typeof detail === "string") {
+        // If it's a standard string error
+        setMessage(detail);
+      } else {
+        setMessage("An unexpected error occurred. Please check your inputs.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Reusable Tailwind classes
   const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
   const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
 
@@ -135,17 +165,14 @@ function ProductFormContent() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          {/* <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            {isEdit ? <PackageEdit className="w-6 h-6 text-red-600" /> : <PackagePlus className="w-6 h-6 text-red-600" />}
-            {isEdit ? "Edit Product" : "Add New Product"}
-          </h1> */}
           <p className="text-sm text-gray-500 mt-1">Configure your product details, pricing, and stock status.</p>
         </div>
       </div>
 
       {message && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2">
-          <Info className="w-4 h-4" /> {message}
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium flex items-start gap-2">
+          <Info className="w-5 h-5 flex-shrink-0 mt-0.5" /> 
+          <div>{message}</div>
         </div>
       )}
 
@@ -235,15 +262,21 @@ function ProductFormContent() {
                   placeholder="0.00"
                 />
               </div>
+              
               <div>
-                <label className={labelClass}>Unit (e.g. kg, pcs)</label>
+                <label className={labelClass}>Weight / Unit Size</label>
                 <input
                   type="text"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className={inputClass}
-                  placeholder="1kg / 1 unit"
+                  placeholder="e.g. 500g, 1kg, 1 pc"
                 />
+                <div className="mt-2 text-[11px] font-medium text-gray-500 h-4">
+                  {(price || unit) ? (
+                    <>Display preview: <span className="text-gray-900 font-bold px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">₹{price || "0"} {unit ? `/ ${unit}` : ''}</span></>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -255,26 +288,72 @@ function ProductFormContent() {
               <h2>Media & Description</h2>
             </div>
             <div className="space-y-6">
+              
               <div>
-                <label className={labelClass}>Product Image</label>
+                <label className={labelClass}>Product Images</label>
+                
+                {(currentImages.length > 0 || images.length > 0) && (
+                  <div className="flex flex-wrap gap-4 mb-4">
+                    {/* Existing Images */}
+                    {currentImages.map((url, idx) => (
+                      <div key={`curr-${idx}`} className="relative group w-24 h-24">
+                        <img 
+                          src={`http://localhost:8000${url}`} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover rounded-lg border border-gray-200 shadow-sm bg-white" 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => setCurrentImages(prev => prev.filter((_, i) => i !== idx))} 
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* Newly Uploaded Images */}
+                    {images.map((file, idx) => (
+                      <div key={`new-${idx}`} className="relative group w-24 h-24">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover rounded-lg border border-green-300 shadow-sm bg-white" 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))} 
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative">
                   <div className="space-y-1 text-center">
                     <ImageIcon className="mx-auto h-12 w-12 text-gray-300" />
-                    <div className="flex text-sm text-gray-600">
+                    <div className="flex text-sm text-gray-600 justify-center">
                       <label className="relative cursor-pointer rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
-                        <span>Upload a file</span>
+                        <span>Upload Images</span>
                         <input 
                           type="file" 
+                          multiple
                           className="sr-only" 
                           accept="image/*"
-                          onChange={(e) => setImage(e.target.files?.[0] || null)}
-                          required={!isEdit} 
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              setImages(prev => [...prev, ...Array.from(e.target.files!)]);
+                            }
+                          }}
+                          required={!isEdit && currentImages.length === 0 && images.length === 0} 
                         />
                       </label>
                       <p className="pl-1 text-gray-500">or drag and drop</p>
                     </div>
-                    <p className="text-xs text-gray-400 font-medium">PNG, JPG up to 5MB</p>
-                    {image && <p className="text-xs text-red-600 font-bold mt-2">Selected: {image.name}</p>}
+                    <p className="text-xs text-gray-400 font-medium">PNG, JPG up to 5MB (Multiple allowed)</p>
                   </div>
                 </div>
               </div>

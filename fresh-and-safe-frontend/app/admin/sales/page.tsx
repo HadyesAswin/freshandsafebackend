@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, IndianRupee, ShoppingCart, Loader2 } from "lucide-react";
+import Link from "next/link"; // ✅ Added Link import
 
 export default function AdminSalesPage() {
   // ✅ FIX: Initialize state with default structure so .map() and .summary never fail
@@ -59,12 +60,37 @@ export default function AdminSalesPage() {
     }
   };
 
+  // ✅ NEW: Helper for Status Badge Colors AND Text Formatting
+  const getStatusBadgeInfo = (status: string) => {
+    const s = status?.toLowerCase() || "";
+    switch (s) {
+      case "pending": 
+        return { text: "Pending", style: "bg-gray-100 text-gray-700 border-gray-200" };
+      case "confirmed": 
+        return { text: "Confirmed", style: "bg-blue-50 text-blue-700 border-blue-200" };
+      case "preparing": 
+        return { text: "Preparing", style: "bg-orange-50 text-orange-700 border-orange-200" };
+      case "ready_for_pickup": 
+        return { text: "Waiting for Rider", style: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+      case "out_for_delivery": 
+        return { text: "Out for Delivery", style: "bg-purple-50 text-purple-700 border-purple-200" };
+      case "delivered": 
+        return { text: "Delivered", style: "bg-green-50 text-green-700 border-green-200" };
+      case "cancelled": 
+        return { text: "Cancelled", style: "bg-red-50 text-red-700 border-red-200" };
+      default: 
+        return { text: status.replace(/_/g, ' ').toUpperCase(), style: "bg-gray-50 text-gray-700 border-gray-200" };
+    }
+  };
+
   const exportToCSV = () => {
     if (!data.orders || data.orders.length === 0) return;
     const headers = "Order #,Customer,Amount,Status,Date\n";
-    const rows = data.orders.map((o: any) => 
-      `${o.order_number},"${o.customer}",${o.amount},${o.status},${o.date}`
-    ).join("\n");
+    const rows = data.orders.map((o: any) => {
+      // ✅ Use formatted text for the CSV export too!
+      const formattedStatus = getStatusBadgeInfo(o.status).text;
+      return `${o.order_number},"${o.customer}",${o.amount},${formattedStatus},${o.date}`;
+    }).join("\n");
     
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -189,31 +215,38 @@ export default function AdminSalesPage() {
                   </td>
                 </tr>
               ) : (
-                data.orders.map((o: any) => (
-                  <tr key={o.order_number} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                      {o.order_number}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {o.customer}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">
-                      ₹{o.amount}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                         o.status.toLowerCase() === 'delivered' 
-                         ? 'bg-green-50 text-green-700 border-green-200' 
-                         : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                       }`}>
-                         {o.status}
-                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500 text-right whitespace-nowrap">
-                      {o.date}
-                    </td>
-                  </tr>
-                ))
+                data.orders.map((o: any) => {
+                  const badgeInfo = getStatusBadgeInfo(o.status);
+
+                  return (
+                    <tr key={o.order_number} className="hover:bg-gray-50 transition-colors">
+                      {/* ✅ Make the Order Number clickable */}
+                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                        <Link 
+                          href={`/admin/sales/${o.order_number}`}
+                          className="text-red-600 hover:text-red-700 hover:underline transition-all"
+                        >
+                          {o.order_number}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {o.customer}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-gray-900">
+                        ₹{o.amount}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                         {/* ✅ Beautifully formatted badge */}
+                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${badgeInfo.style}`}>
+                           {badgeInfo.text}
+                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 text-right whitespace-nowrap">
+                        {o.date}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

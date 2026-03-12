@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.core.database import get_db
-from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner
-from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner, Outlet
+from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner, Outlet, Testimonial, Zipcode
 from app.services.map_service import get_lat_lng_from_zipcode, get_nearby_outlets
 
 router = APIRouter()
-
 
 # =====================================================
 # HOME DATA (Marquee + Banners + Products by Location)
@@ -14,39 +13,84 @@ router = APIRouter()
 @router.get("/")
 def get_home_data(zipcode: str, db: Session = Depends(get_db)):
 
-    # 1. Fetch Marquee
-    # 1. Fetch Marquee & Banners (These can show even if shops are closed)
-    marquee = db.query(Marquee).order_by(Marquee.created_at.desc()).first()
-    marquee_text = marquee.text if marquee else "Welcome to Fresh&Safe!"
+    # 1. Fetch Marquee (✅ Fetch ALL marquees instead of just the first one)
+    marquees = db.query(Marquee).order_by(Marquee.created_at.desc()).all()
+    if marquees:
+        # Join them all together with a spacer (e.g., ' • ')
+        marquee_text = "  •  ".join([m.text for m in marquees])
+    else:
+        marquee_text = "Welcome to Fresh&Safe! Deliveries available in select locations."
 
+    # 2. Fetch Banners
     banners = db.query(Banner).order_by(Banner.display_order).all()
     banner_list = [
         {"id": b.id, "image": b.image, "url": b.url}
         for b in banners
     ]
 
-    # 3. Validate Zipcode
-    # 2. Location Logic
-    user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+    # Fetch all active categories right away
+    # ✅ SOFT DELETE FILTER APPLIED
+    categories = (
+        db.query(Category)
+        .filter(Category.status == True, Category.is_deleted == False)
+        .order_by(Category.display_order)
+        .all()
+    )
+    category_list = [
+        {"id": c.id, "name": c.name, "image": c.image, "slug": c.slug}
+        for c in categories
+    ]
+
+    # Fetch Testimonials
+    testimonials = (
+        db.query(Testimonial)
+        .filter(Testimonial.status == True)
+        .order_by(Testimonial.display_order)
+        .all()
+    )
+    testimonial_list = [
+        {
+            "id": t.id, 
+            "name": t.name, 
+            "description": t.description, 
+            "photo": t.photo, 
+            "place": t.place
+        }
+        for t in testimonials
+    ]
+
+    # Location Logic 
+    user_lat, user_lng = None, None
+    try:
+        zip_record = db.query(Zipcode).filter(Zipcode.zipcode == zipcode).first()
+        if zip_record and zip_record.latitude:
+            user_lat, user_lng = zip_record.latitude, zip_record.longitude
+        else:
+            user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+            if user_lat and user_lng:
+                new_zip = Zipcode(zipcode=zipcode, latitude=user_lat, longitude=user_lng)
+                db.add(new_zip)
+                db.commit()
+    except Exception as e:
+        print(f"Map service error (Home Data): {e}")
 
     if not user_lat:
         return {
             "marquee": marquee_text,
             "banners": banner_list,
             "daily_deals": [],
-            "categories": [],
+            "categories": category_list, 
             "products": [],
+            "testimonials": testimonial_list,
             "valid_location": False
         }
 
-    # 4. Get Nearby Outlets
-    # 3. Get Nearby Outlets
+    # Get Nearby Outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
 
-    # ✅ FILTER: Only include outlets where status is TRUE (Open)
-    # This single line ensures products from closed shops are NEVER fetched.
-    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True]
-    
+    # FILTER: Only include outlets where status is TRUE (Open) AND not deleted
+    # ✅ SOFT DELETE FILTER APPLIED
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True and outlet.is_deleted is False]
     outlet_ids = [outlet.id for outlet in active_outlets]
 
     # If no active outlets are found nearby
@@ -55,27 +99,28 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
             "marquee": marquee_text,
             "banners": banner_list,
             "daily_deals": [],
-            "categories": [],
+            "categories": category_list, 
             "products": [],
+            "testimonials": testimonial_list, 
             "valid_location": False 
         }
 
-    # 5. Fetch Products
-    # 4. Get Products (Only from Active Outlets)
+    # Fetch Products
+    # ✅ SOFT DELETE FILTER APPLIED
     products = (
         db.query(Product)
         .join(ShopProduct, ShopProduct.product_id == Product.id)
         .outerjoin(DailyDeal, DailyDeal.product_id == Product.id)
         .filter(
-            ShopProduct.outlet_id.in_(outlet_ids), # <--- Uses only active IDs
+            ShopProduct.outlet_id.in_(outlet_ids),
             ShopProduct.is_available == True,
             Product.status == True,
-            Product.is_available == True
+            Product.is_available == True,
+            Product.is_deleted == False
         )
         .all()
     )
 
-    # ... (Rest of your processing logic remains the same) ...
     daily_deals = []
     normal_products = []
     category_ids = set()
@@ -87,39 +132,28 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
             daily_deals.append({
                 "id": product.id,
                 "name": product.name,
-                "slug": product.slug,   # ✅ Added for consistency
+                "slug": product.slug,  
                 "image": product.image,
-                "price": product.daily_deal.offer_price,
-                "original_price": product.price
+                "price": product.price,  # Show standard MRP
+                "compare_price": product.compare_price  # ✅ ADDED THIS LINE
             })
         else:
             normal_products.append({
                 "id": product.id,
                 "name": product.name,
-                "slug": product.slug,   # ✅ Added for consistency
+                "slug": product.slug,  
                 "image": product.image,
-                "price": product.price
+                "price": product.price,  # Show standard MRP
+                "compare_price": product.compare_price  # ✅ ADDED THIS LINE
             })
-
-    # 6. Get Categories
-    categories = (
-        db.query(Category)
-        .filter(Category.id.in_(category_ids), Category.status == True)
-        .order_by(Category.display_order)
-        .all()
-    )
-
-    category_list = [
-        {"id": c.id, "name": c.name, "image": c.image, "slug": c.slug}
-        for c in categories
-    ]
 
     return {
         "marquee": marquee_text,
         "banners": banner_list,
         "daily_deals": daily_deals,
-        "categories": category_list,
+        "categories": category_list, 
         "products": normal_products[:6],
+        "testimonials": testimonial_list, 
         "valid_location": True
     }
 
@@ -127,56 +161,57 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
 # =====================================================
 # PRODUCTS BY CATEGORY (Location Aware)
 # =====================================================
-
-    # 1. Validate Zipcode
 @router.get("/category/{slug}")
 def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_db)):
-    # 1. Get User Location
-    user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
-    if not user_lat:
-        raise HTTPException(status_code=404, detail="Invalid zipcode")
+    user_lat, user_lng = None, None
+    try:
+        zip_record = db.query(Zipcode).filter(Zipcode.zipcode == zipcode).first()
+        if zip_record and zip_record.latitude:
+            user_lat, user_lng = zip_record.latitude, zip_record.longitude
+        else:
+            user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+    except Exception as e:
+        print(f"Map service error (Category Data): {e}")
 
-    # 2. Get Category
-    # 2. Find Category
-    category = db.query(Category).filter(Category.slug == slug).first()
+    if not user_lat:
+        raise HTTPException(status_code=404, detail="Invalid zipcode or map service unavailable")
+
+    # ✅ SOFT DELETE FILTER APPLIED
+    category = db.query(Category).filter(Category.slug == slug, Category.is_deleted == False).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    # 3. Nearby Outlets
-    # 3. Find Nearby Outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
     
-    # ✅ FILTER: Only include outlets where status is TRUE (Open)
-    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True]
+    # ✅ SOFT DELETE FILTER APPLIED
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True and outlet.is_deleted is False]
     outlet_ids = [outlet.id for outlet in active_outlets]
 
     if not outlet_ids:
         return {"category_name": category.name, "products": []}
 
-    # 4. Fetch Products
+    # ✅ SOFT DELETE FILTER APPLIED
     products = (
         db.query(Product)
         .join(ShopProduct, ShopProduct.product_id == Product.id)
         .filter(
             Product.category_id == category.id,
             ShopProduct.outlet_id.in_(outlet_ids),
-            ShopProduct.outlet_id.in_(outlet_ids), # <--- Uses only active IDs
             ShopProduct.is_available == True,
             Product.status == True,
-            Product.is_available == True
+            Product.is_available == True,
+            Product.is_deleted == False
         )
         .all()
     )
 
-    # 5. Return Clean JSON
-    # 5. Return JSON
     return {
         "category_name": category.name,
         "products": [
             {
                 "id": p.id,
                 "name": p.name,
-                "slug": p.slug,   # ✅ FIXED (THIS WAS MISSING)
+                "slug": p.slug, 
                 "image": p.image,
                 "price": p.price,
                 "compare_price": p.compare_price,
@@ -192,19 +227,27 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
 # =====================================================
 @router.get("/product/{slug}")
 def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
+    user_lat, user_lng = None, None
+    try:
+        zip_record = db.query(Zipcode).filter(Zipcode.zipcode == zipcode).first()
+        if zip_record and zip_record.latitude:
+            user_lat, user_lng = zip_record.latitude, zip_record.longitude
+        else:
+            user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+    except Exception as e:
+        print(f"Map service error (Product Details): {e}")
 
-    # 1. Validate Zipcode
-    user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
     if not user_lat:
-        raise HTTPException(status_code=404, detail="Invalid zipcode")
+        raise HTTPException(status_code=404, detail="Invalid zipcode or map service unavailable")
 
-    # 2. Get Product
+    # ✅ SOFT DELETE FILTER APPLIED
     product = (
         db.query(Product)
         .filter(
             Product.slug == slug,
             Product.status == True,
-            Product.is_available == True
+            Product.is_available == True,
+            Product.is_deleted == False
         )
         .first()
     )
@@ -212,9 +255,11 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # 3. Check Availability in Nearby Outlets
     nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
-    outlet_ids = [outlet.id for outlet in nearby_outlets]
+    
+    # ✅ SOFT DELETE FILTER APPLIED
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True and outlet.is_deleted is False]
+    outlet_ids = [outlet.id for outlet in active_outlets]
 
     shop_product = (
         db.query(ShopProduct)
@@ -232,7 +277,6 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
             detail="Product not available in your area"
         )
 
-    # 4. Check Daily Deal
     deal = (
         db.query(DailyDeal)
         .filter(DailyDeal.product_id == product.id)
@@ -245,10 +289,83 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
         "slug": product.slug,
         "description": product.description,
         "image": product.image,
-        "price": deal.offer_price if deal else product.price,
-        "original_price": product.price if deal else None,
+        "images": product.images,
+        "price": product.price,                 # ✅ Always use standard MRP
         "compare_price": product.compare_price,
         "unit": product.unit,
         "category": product.category.name
     }
+
+
+# =====================================================
+# GLOBAL SEARCH (Categories & Location-Aware Products)
+# =====================================================
+@router.get("/search")
+def search_items(q: str, zipcode: str = None, db: Session = Depends(get_db)):
+    if not q or len(q.strip()) < 2:
+        return {"categories": [], "products": []}
+
+    search_query = f"%{q.strip()}%"
+
+    # 1. Search Categories (Global - not dependent on location)
+    # ✅ SOFT DELETE FILTER APPLIED
+    categories = db.query(Category).filter(
+        Category.status == True,
+        Category.is_deleted == False,
+        Category.name.ilike(search_query)
+    ).limit(5).all()
+
+    category_results = [
+        {"name": c.name, "slug": c.slug, "image": c.image, "type": "category"} 
+        for c in categories
+    ]
+
+    # 2. Search Products (Location Aware)
+    product_results = []
     
+    if zipcode:
+        user_lat, user_lng = None, None
+        try:
+            zip_record = db.query(Zipcode).filter(Zipcode.zipcode == zipcode).first()
+            if zip_record and zip_record.latitude:
+                user_lat, user_lng = zip_record.latitude, zip_record.longitude
+            else:
+                user_lat, user_lng = get_lat_lng_from_zipcode(zipcode)
+        except Exception:
+            pass
+
+        if user_lat and user_lng:
+            nearby_outlets = get_nearby_outlets(db, user_lat, user_lng)
+            # ✅ SOFT DELETE FILTER APPLIED
+            active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True and outlet.is_deleted is False]
+            outlet_ids = [outlet.id for outlet in active_outlets]
+
+            if outlet_ids:
+                # ✅ SOFT DELETE FILTER APPLIED
+                products = (
+                    db.query(Product)
+                    .join(ShopProduct, ShopProduct.product_id == Product.id)
+                    .filter(
+                        ShopProduct.outlet_id.in_(outlet_ids),
+                        ShopProduct.is_available == True,
+                        Product.status == True,
+                        Product.is_available == True,
+                        Product.is_deleted == False,
+                        or_(
+                            Product.name.ilike(search_query),
+                            Product.description.ilike(search_query)
+                        )
+                    )
+                    .limit(10)
+                    .all()
+                )
+
+                product_results = [
+                    {"name": p.name, "slug": p.slug, "image": p.image, "price": p.price, "type": "product"}
+                    for p in products
+                ]
+
+    return {
+        "categories": category_results,
+        "products": product_results
+    }

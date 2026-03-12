@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { 
   ArrowLeft, 
   Zap, 
-  IndianRupee, 
   ShoppingBag, 
   Loader2, 
   Save, 
@@ -21,8 +20,7 @@ function DealFormContent() {
   const [products, setProducts] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
-    product_id: "",
-    offer_price: ""
+    product_id: ""
   });
 
   // 1. Fetch Products for Dropdown
@@ -40,8 +38,7 @@ function DealFormContent() {
           const deal = res.data.find((d: any) => d.id === parseInt(editingId));
           if (deal) {
             setFormData({
-              product_id: deal.product_id.toString(),
-              offer_price: deal.offer_price.toString()
+              product_id: deal.product_id.toString()
             });
           }
         });
@@ -53,9 +50,13 @@ function DealFormContent() {
     setLoading(true);
     const token = localStorage.getItem("admin_token");
 
+    // ✅ Find the selected product's original price to satisfy the backend DB requirement safely
+    const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
+    const originalPrice = selectedProduct ? selectedProduct.price : 0;
+
     const payload = {
         product_id: parseInt(formData.product_id),
-        offer_price: parseFloat(formData.offer_price)
+        offer_price: parseFloat(originalPrice)
     };
 
     try {
@@ -96,10 +97,10 @@ function DealFormContent() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <Zap className="w-6 h-6 text-red-600 fill-red-600" />
-            {editingId ? "Edit Daily Deal" : "Create New Deal"}
+            {editingId ? "Edit Daily Deal Product" : "Create New Deal"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {editingId ? "Modify the existing offer price for this product." : "Select a product and set an attractive offer price."}
+            {editingId ? "Change the product featured in this deal slot." : "Select a product to be featured in the Daily Deals section."}
           </p>
         </div>
       </div>
@@ -133,42 +134,14 @@ function DealFormContent() {
                 <ArrowLeft className="w-4 h-4 -rotate-90" />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Pricing Area */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-gray-900 font-semibold border-b border-gray-50 pb-2">
-            <IndianRupee className="w-4 h-4 text-red-500" />
-            <h2>Pricing Details</h2>
-          </div>
-
-          <div className="bg-red-50/50 p-6 rounded-xl border border-red-100 space-y-4">
-            <div>
-              <label className={labelClass}>New Offer Price (₹)</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-                  <IndianRupee className="w-4 h-4" />
-                </span>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={formData.offer_price} 
-                  onChange={e => setFormData({...formData, offer_price: e.target.value})} 
-                  className={`${inputClass} pl-10 text-lg font-bold text-red-600`} 
-                  placeholder="0.00"
-                  required 
-                />
-              </div>
-              <p className="text-[11px] text-gray-500 mt-2 italic font-medium">
-                * This price will overwrite the current selling price on the "Daily Deals" section.
-              </p>
-            </div>
+            <p className="text-[11px] text-gray-500 mt-2 italic font-medium">
+              * The standard MRP will be used. No custom offer price required.
+            </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-50">
           <button
             type="button"
             onClick={() => router.back()}
@@ -178,7 +151,7 @@ function DealFormContent() {
           </button>
           <button 
             type="submit" 
-            disabled={loading} 
+            disabled={loading || !formData.product_id} 
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-8 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {loading ? (

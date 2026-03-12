@@ -1,9 +1,11 @@
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
-from app.models import User, UserRole
+from app.core.database import SessionLocal,engine
+from app.models import User, UserRole,Base
 from app.core.security import get_password_hash
 
+
 def create_superuser():
+    Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     
     # 1. Check if an admin already exists

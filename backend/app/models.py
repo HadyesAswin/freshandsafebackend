@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Enum as PgEnum, DateTime, Text, ForeignKey, Float
+from sqlalchemy import Boolean, Column, Integer, String, Enum as PgEnum, DateTime, Text, ForeignKey, Float, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -31,13 +31,12 @@ class User(Base):
     reset_otp = Column(String, nullable=True)
     reset_otp_expires_at = Column(DateTime, nullable=True)
 
+    sms_subscription = Column(Boolean(), default=False)
+
     is_active = Column(Boolean(), default=True)
+    is_deleted = Column(Boolean, default=False) # ✅ ADDED FOR SOFT DELETE
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-
-
 
 
 class Category(Base):
@@ -50,6 +49,7 @@ class Category(Base):
     image = Column(String, nullable=True)
     display_order = Column(Integer, default=0)
     status = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False) # ✅ ADDED FOR SOFT DELETE
 
     # One Category -> Many Products
     products = relationship(
@@ -97,7 +97,11 @@ class Product(Base):
     slug = Column(String, unique=True, nullable=False, index=True)
 
     description = Column(Text, nullable=True)
-    image = Column(String, nullable=True)
+    
+    # ✅ Kept for backward compatibility (serves as the primary/thumbnail image)
+    image = Column(String, nullable=True) 
+    # ✅ ADDED FOR MULTIPLE IMAGES
+    images = Column(JSON, default=list) 
 
     price = Column(Float, nullable=False)
     compare_price = Column(Float, nullable=True)
@@ -106,6 +110,7 @@ class Product(Base):
 
     is_available = Column(Boolean, default=True)
     status = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False) 
 
     meta_title = Column(String, nullable=True)
     meta_description = Column(Text, nullable=True)
@@ -146,6 +151,7 @@ class RefundPolicy(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
 class News(Base):
     __tablename__ = "news"
 
@@ -238,6 +244,7 @@ class Outlet(Base):
     longitude = Column(Float, nullable=True)
     
     status = Column(Boolean, default=True) # Active/Inactive
+    is_deleted = Column(Boolean, default=False) # ✅ ADDED FOR SOFT DELETE
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now()) 
@@ -285,6 +292,7 @@ class Coupon(Base):
     applicable_type = Column(String, default=ApplicableType.ALL) 
     
     status = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False) # ✅ ADDED FOR SOFT DELETE
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -318,7 +326,7 @@ class CouponProduct(Base):
 class CouponUsage(Base):
     __tablename__ = "coupon_usage"
     id = Column(Integer, primary_key=True, index=True)
-    coupon_id = Column(Integer, ForeignKey("coupons.id"))
+    coupon_id = Column(Integer, ForeignKey("coupons.id", ondelete="CASCADE"))
     user_id = Column(Integer, ForeignKey("users.id")) # user table is "user" (singular) usually
     order_id = Column(Integer, nullable=True) # Link to order if you have one
     discount_amount = Column(Float, nullable=False)
@@ -369,6 +377,7 @@ class OrderStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     PREPARING = "preparing"
+    READY_FOR_PICKUP = "ready_for_pickup"
     OUT_FOR_DELIVERY = "out_for_delivery"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
@@ -430,6 +439,10 @@ class Order(Base):
         default=PaymentStatus.PENDING
     )
     payment_method = Column(String, default=PaymentMethod.ONLINE)
+
+    razorpay_order_id = Column(String, nullable=True)
+    razorpay_payment_id = Column(String, nullable=True)
+    razorpay_signature = Column(String, nullable=True)
     
     customer_note = Column(Text, nullable=True)
 
@@ -490,6 +503,9 @@ class UserAddress(Base):
     city = Column(String, nullable=False)
     state = Column(String, nullable=False)
     zipcode = Column(String, nullable=False)
+
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -538,3 +554,30 @@ class Testimonial(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Wishlist(Base):
+    __tablename__ = "wishlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # ondelete="CASCADE" means if a user or product is deleted, the wishlist item is also deleted
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  
+
+
+class Blog(Base):
+    __tablename__ = "blogs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True, nullable=False)
+    slug = Column(String, unique=True, index=True, nullable=False)
+    content = Column(Text, nullable=False)
+    feature_image = Column(String, nullable=True)
+    author = Column(String, default="Fresh & Safe Team") # New for blogs
+    status = Column(Boolean, default=True) # True = Published, False = Draft
+    
+    published_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

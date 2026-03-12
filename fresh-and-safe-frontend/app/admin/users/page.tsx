@@ -1,24 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Mail, Phone, Calendar, Loader2, RotateCcw } from "lucide-react";
+// ✅ Added MessageSquareText icon for SMS Subscription
+import { Users, Mail, Phone, Calendar, Loader2, RotateCcw, Download, MessageSquareText } from "lucide-react"; 
 
 export default function AdminUsersPage() {
   const [userData, setUserData] = useState<any>({ users: [], pagination: {} });
   const [loading, setLoading] = useState(true);
   
-  // Filter & Pagination States
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [month, setMonth] = useState("");
   const [specificDate, setSpecificDate] = useState("");
   const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
       let queryParams = new URLSearchParams();
       queryParams.append("page", page.toString());
-      queryParams.append("page_size", "10");
+      queryParams.append("page_size", pageSize.toString());
 
       if (specificDate) {
         queryParams.append("specific_date", specificDate);
@@ -43,12 +44,31 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [year, month, specificDate, page]);
 
-  // Reset to page 1 when filters change
   const handleFilterChange = (type: string, value: string) => {
     setPage(1);
     if (type === 'year') setYear(value);
     if (type === 'month') setMonth(value);
     if (type === 'date') setSpecificDate(value);
+  };
+
+  // ✅ Updated Export to include SMS Subscription status
+  const exportToCSV = () => {
+    if (!userData.users || userData.users.length === 0) return;
+    
+    const headers = "Sl No.,Full Name,Email,Phone,Joined Date,Status,SMS Subscribed\n";
+    const rows = userData.users.map((u: any, index: number) => {
+      const slNo = (page - 1) * pageSize + index + 1;
+      const status = u.is_active ? 'Active' : 'Inactive';
+      const sms = u.sms_subscription ? 'Yes' : 'No'; // ✅ New Field
+      return `${slNo},"${u.full_name}","${u.email}","${u.phone || 'N/A'}",${u.created_at},${status},${sms}`;
+    }).join("\n");
+    
+    const blob = new Blob([headers + rows], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
   };
 
   return (
@@ -60,9 +80,21 @@ export default function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h1>
           <p className="text-sm text-gray-500 mt-1">View and filter registered customers and staff.</p>
         </div>
-        <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium text-sm shadow-sm w-full sm:w-auto justify-center">
-          <Users className="w-4 h-4" />
-          Total: {userData.pagination.total_count || 0} Users
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <button 
+            onClick={exportToCSV}
+            disabled={!userData.users || userData.users.length === 0}
+            className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-50 hover:text-gray-900 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none shadow-sm w-full sm:w-auto"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          
+          <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium text-sm shadow-sm w-full sm:w-auto justify-center">
+            <Users className="w-4 h-4" />
+            Total: {userData.pagination.total_count || 0} Users
+          </div>
         </div>
       </div>
 
@@ -120,11 +152,12 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm text-left text-gray-500">
             <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-200">
               <tr>
-                <th scope="col" className="px-6 py-4 font-medium text-center w-16">ID</th>
+                <th scope="col" className="px-6 py-4 font-medium text-center w-16">Sl No.</th>
                 <th scope="col" className="px-6 py-4 font-medium">User Details</th>
                 <th scope="col" className="px-6 py-4 font-medium">Contact</th>
-                <th scope="col" className="px-6 py-4 font-medium">Role</th>
                 <th scope="col" className="px-6 py-4 font-medium">Joined Date</th>
+                {/* ✅ Added SMS Subscription Header */}
+                <th scope="col" className="px-6 py-4 font-medium text-center">SMS Sub</th>
                 <th scope="col" className="px-6 py-4 font-medium text-right">Status</th>
               </tr>
             </thead>
@@ -143,10 +176,10 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ) : (
-                userData.users.map((user: any) => (
+                userData.users.map((user: any, index: number) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 text-center text-gray-400 font-medium text-xs">
-                      #{user.id}
+                    <td className="px-6 py-4 text-center text-gray-500 font-medium text-sm">
+                      {(page - 1) * pageSize + index + 1}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-gray-900">{user.full_name}</div>
@@ -162,16 +195,24 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-50 text-gray-700 border-gray-200 uppercase tracking-wider">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-gray-500">
                         <Calendar className="w-3.5 h-3.5 text-gray-400" />
                         {user.created_at}
                       </div>
                     </td>
+                    
+                    {/* ✅ NEW: SMS Subscription Status Badge */}
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase border ${
+                        user.sms_subscription 
+                        ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                        : 'bg-gray-50 text-gray-400 border-gray-100'
+                      }`}>
+                        <MessageSquareText className="w-3 h-3" />
+                        {user.sms_subscription ? "Subscribed" : "Off"}
+                      </span>
+                    </td>
+
                     <td className="px-6 py-4 text-right">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                         user.is_active 

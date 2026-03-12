@@ -11,7 +11,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[Outlet])
 def read_outlets(db: Session = Depends(get_db)):
-    return db.query(OutletModel).all()
+    # ✅ Filter out soft-deleted outlets so they don't show in the admin panel
+    return db.query(OutletModel).filter(OutletModel.is_deleted == False).all()
 
 @router.post("/", response_model=Outlet)
 def create_outlet(
@@ -51,7 +52,8 @@ def update_outlet(
     db: Session = Depends(get_db),
     current_user: Any = Depends(deps.get_current_active_admin)
 ):
-    outlet = db.query(OutletModel).filter(OutletModel.id == outlet_id).first()
+    # ✅ Make sure they can't update a deleted outlet
+    outlet = db.query(OutletModel).filter(OutletModel.id == outlet_id, OutletModel.is_deleted == False).first()
     if not outlet: raise HTTPException(status_code=404, detail="Outlet not found")
 
     # Update fields
@@ -71,6 +73,10 @@ def update_outlet(
 def delete_outlet(outlet_id: int, db: Session = Depends(get_db), current_user: Any = Depends(deps.get_current_active_admin)):
     outlet = db.query(OutletModel).filter(OutletModel.id == outlet_id).first()
     if not outlet: raise HTTPException(status_code=404, detail="Outlet not found")
-    db.delete(outlet)
+    
+    # ✅ SOFT DELETE APPLIED HERE
+    outlet.is_deleted = True
+    outlet.status = False
+    
     db.commit()
     return {"ok": True}

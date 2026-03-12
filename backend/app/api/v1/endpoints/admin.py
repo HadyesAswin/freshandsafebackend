@@ -52,6 +52,7 @@ def get_admin_users(
                 "phone": u.phone,
                 "role": u.role,
                 "is_active": u.is_active,
+                "sms_subscription": u.sms_subscription,
                 "created_at": u.created_at.strftime("%Y-%m-%d %H:%M"),
             } for u in users
         ],

@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     QWQER_API_URL: str = "https://stage-api.qwqer.in/v2/" 
     QWQER_CLIENT_SECRET: str = "5uPZIT5GZKwom82dUbZKSAMRC3DrPglXas0ApMFvMptXMQJiEIImzxMFKKzQRqgM"
 
+    RAZORPAY_KEY_ID: str
+    RAZORPAY_KEY_SECRET: str
+
     # Database URL Builder
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:

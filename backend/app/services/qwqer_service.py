@@ -14,19 +14,37 @@ class QwqerService:
         base = self.base_url.rstrip("/")
         url = f"{base}/client/price-calculate/"
         
+        # ✅ BUGFIX: Prevent 500 error crashes if GPS coordinates are completely missing
+        if not outlet.latitude or not outlet.longitude:
+            return {"error": "Outlet is missing GPS coordinates in the database"}
+        if not order.delivery_latitude or not order.delivery_longitude:
+            return {"error": "Delivery destination is missing GPS coordinates"}
+
         payload = {
-            "from_latitude": float(outlet.latitude or 9.9312),
-            "from_longitude": float(outlet.longitude or 76.2673),
+            "from_latitude": float(outlet.latitude),
+            "from_longitude": float(outlet.longitude),
             "from_pincode": outlet.zipcode,
-            "to_latitude": float(order.delivery_latitude or 10.0246),
-            "to_longitude": float(order.delivery_longitude or 76.3075),
+            "to_latitude": float(order.delivery_latitude),
+            "to_longitude": float(order.delivery_longitude),
             "to_pincode": order.delivery_zipcode,
             "weight": float(weight),
             "payment_mode": 6, 
             "merchant_order_amount": 0.0
         }
 
+        # 1. LOG WHAT YOU ARE SENDING TO QWQER
+        print("\n" + "="*50)
+        print("🚀 HITTING QWQER PRICE API 🚀")
+        print(f"URL: {url}")
+        print(f"PAYLOAD: {payload}")
+
         response = requests.post(url, json=payload, headers=self.headers)
+        
+        # 2. LOG WHAT QWQER SENDS BACK
+        print(f"QWQER STATUS CODE: {response.status_code}")
+        print(f"QWQER RAW RESPONSE: {response.text}")
+        print("="*50 + "\n")
+
         if response.status_code == 200:
             return response.json().get("data", {})
         return {"error": response.text}
@@ -46,16 +64,22 @@ class QwqerService:
             "from_locality": outlet.city,
             "from_pincode": outlet.zipcode,
             "from_house_number": outlet.landmark or "Store 1",
-            "from_latitude": float(outlet.latitude or 9.9312),
-            "from_longitude": float(outlet.longitude or 76.2673),
+            
+            # ✅ REMOVED HARDCODED FALLBACKS
+            "from_latitude": float(outlet.latitude),
+            "from_longitude": float(outlet.longitude),
+            
             "to_name": order.delivery_name,
             "to_phone": f"+91{t_phone}",
             "to_address": order.delivery_address_line1,
             "to_house_number": order.delivery_house_number or "NA",
             "to_locality": order.delivery_city,
             "to_pincode": order.delivery_zipcode,
-            "to_latitude": float(order.delivery_latitude or 10.0246),
-            "to_longitude": float(order.delivery_longitude or 76.3075),
+            
+            # ✅ REMOVED HARDCODED FALLBACKS
+            "to_latitude": float(order.delivery_latitude),
+            "to_longitude": float(order.delivery_longitude),
+            
             "merchant_order_id": order.order_number,
             "store_order_id": order.order_number,
             "weight": float(weight),
