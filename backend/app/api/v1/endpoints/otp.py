@@ -9,6 +9,7 @@ from app.models import User, UserRole
 from app.schemas.otp import SendOTPRequest, VerifyOTPRequest
 from app.core import security
 from app.core.config import settings
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -159,3 +160,31 @@ def complete_profile(data: CompleteProfileRequest, db: Session = Depends(get_db)
         }
     }
 
+
+# ===============================
+# 4️⃣ UPDATE SMS SUBSCRIPTION
+# ===============================
+
+class SMSSubscriptionRequest(BaseModel):
+    user_id: int
+    status: bool
+
+@router.put("/update-sms-subscription")
+def update_sms_subscription(payload: SMSSubscriptionRequest, db: Session = Depends(get_db)):
+    """
+    Updates the user's preference for SMS marketing and promotions.
+    """
+    user = db.query(User).filter(User.id == payload.user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update the new field we added to the User model
+    user.sms_subscription = payload.status
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": "SMS Subscription updated successfully",
+        "sms_subscription": user.sms_subscription
+    }

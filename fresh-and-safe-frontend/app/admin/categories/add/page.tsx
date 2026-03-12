@@ -10,6 +10,7 @@ function CategoryFormContent() {
   const editingId = searchParams.get("id");
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [currentImage, setCurrentImage] = useState<string | null>(null); // ✅ Added state for current image
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -32,6 +33,10 @@ function CategoryFormContent() {
             display_order: item.display_order || 0,
             status: item.status,
           });
+          // ✅ Set the existing image if it exists
+          if (item.image) {
+            setCurrentImage(item.image);
+          }
         }
       });
     }
@@ -100,6 +105,13 @@ function CategoryFormContent() {
   // Reusable Tailwind classes matching the new minimal theme
   const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
   const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
+
+  // ✅ Helper to show either the newly selected file or the existing database image
+  const previewUrl = selectedFile 
+    ? URL.createObjectURL(selectedFile) 
+    : currentImage 
+      ? `http://localhost:8000${currentImage}` 
+      : null;
 
   return (
     <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
@@ -171,6 +183,18 @@ function CategoryFormContent() {
             <label className={`${labelClass} flex items-center gap-2`}>
               <ImageIcon className="w-4 h-4" /> Display Image
             </label>
+            
+            {/* ✅ Image Preview Section */}
+            {previewUrl && (
+              <div className="mb-3">
+                <img 
+                  src={previewUrl} 
+                  alt="Category Preview" 
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-200 shadow-sm" 
+                />
+              </div>
+            )}
+
             <input 
               type="file" 
               onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} 

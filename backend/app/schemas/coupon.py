@@ -51,19 +51,31 @@ class CouponUpdate(BaseModel):
 class CategoryMini(BaseModel):
     id: int
     name: str
+    
+    # 🔥 FIX: Tell Pydantic how to read SQLAlchemy objects
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductMini(BaseModel):
     id: int
     name: str
+    
+    # 🔥 FIX
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CouponCategoryOut(BaseModel):
     category: CategoryMini
+    
+    # 🔥 FIX
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CouponProductOut(BaseModel):
     product: ProductMini
+    
+    # 🔥 FIX
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Coupon(BaseModel):
@@ -101,7 +113,7 @@ class CartItemData(BaseModel):
 class CouponValidateRequest(BaseModel):
     code: str
     subtotal: float
-    items: List[CartItemData]   # 🔥 STRICT MODE
+    items: List[CartItemData]   # STRICT MODE
     user_id: Optional[int] = None
 
 

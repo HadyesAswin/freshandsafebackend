@@ -11,15 +11,19 @@ from fastapi.encoders import jsonable_encoder
 
 router = APIRouter()
 
-
 @router.post("/validate", response_model=CouponValidateResponse)
 def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
 
     print("\n========== COUPON VALIDATION START ==========")
 
+    # 1️⃣ IMMEDIATELY BLOCK GUEST USERS
+    if not data.user_id:
+        print("Guest User blocked from using coupons ❌")
+        return {"valid": False, "discount": 0, "message": "Coupons are only available to logged-in users."}
+
     redis = get_redis_client()
     coupon_code = data.code.upper().strip()
-    cache_key = f"coupon:{coupon_code}"
+    cache_key = f"coupons:{coupon_code}" # ✅ FIX: Match admin cache key format
 
     coupon = None
 
@@ -29,17 +33,20 @@ def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
 
         if cached:
             coupon_data = json.loads(cached)
+            # ✅ SOFT DELETE FILTER APPLIED HERE
             coupon = db.query(Coupon).options(
                 joinedload(Coupon.categories),
                 joinedload(Coupon.products)
-            ).filter(Coupon.id == coupon_data["id"]).first()
+            ).filter(Coupon.id == coupon_data["id"], Coupon.is_deleted == False).first()
         else:
+            # ✅ SOFT DELETE FILTER APPLIED HERE
             coupon = db.query(Coupon).options(
                 joinedload(Coupon.categories),
                 joinedload(Coupon.products)
             ).filter(
                 Coupon.code == coupon_code,
-                Coupon.status == True
+                Coupon.status == True,
+                Coupon.is_deleted == False
             ).first()
 
             if coupon:
@@ -47,37 +54,53 @@ def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
         print("Redis error:", e)
+        # ✅ SOFT DELETE FILTER APPLIED HERE
         coupon = db.query(Coupon).options(
             joinedload(Coupon.categories),
             joinedload(Coupon.products)
         ).filter(
             Coupon.code == coupon_code,
-            Coupon.status == True
+            Coupon.status == True,
+            Coupon.is_deleted == False
         ).first()
 
     if not coupon:
         print("Invalid coupon ❌")
         return {"valid": False, "discount": 0, "message": "Invalid coupon code"}
 
-    now = datetime.utcnow()
+    now = datetime.now() # ✅ FIX: Use local time to match admin panel
 
     # ✅ Date validation
-    if coupon.valid_from > now or coupon.valid_to < now:
-        return {"valid": False, "discount": 0, "message": "Coupon expired"}
+    if coupon.valid_from > now:
+        return {"valid": False, "discount": 0, "message": "Coupon is not active yet"}
+        
+    if coupon.valid_to < now:
+        return {"valid": False, "discount": 0, "message": "Coupon has expired"}
+
+    # ✅ Minimum order check (Moved up for strict enforcement)
+    if data.subtotal < coupon.min_order_amount:
+        return {
+            "valid": False,
+            "discount": 0,
+            "message": f"Minimum order of ₹{coupon.min_order_amount} required"
+        }
 
     # ✅ Global usage limit
     if coupon.total_usage_limit and coupon.used_count >= coupon.total_usage_limit:
         return {"valid": False, "discount": 0, "message": "Coupon usage limit reached"}
 
-    # ✅ Per-user usage limit
-    if data.user_id:
-        usage_count = db.query(CouponUsage).filter(
-            CouponUsage.coupon_id == coupon.id,
-            CouponUsage.user_id == data.user_id
-        ).count()
+    # ✅ STRICT Per-user usage limit
+    usage_count = db.query(CouponUsage).filter(
+        CouponUsage.coupon_id == coupon.id,
+        CouponUsage.user_id == data.user_id
+    ).count()
 
-        if usage_count >= coupon.usage_limit_per_user:
-            return {"valid": False, "discount": 0, "message": "You have already used this coupon"}
+    if usage_count >= coupon.usage_limit_per_user:
+        return {
+            "valid": False, 
+            "discount": 0, 
+            "message": f"You have already used this coupon (Limit: {coupon.usage_limit_per_user})"
+        }
 
     # ✅ STRICT PRODUCT + CATEGORY LOGIC
     product_ids = [item.product_id for item in data.items]
@@ -121,14 +144,6 @@ def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
             "message": "Coupon not applicable to selected products"
         }
 
-    # ✅ Minimum order check (FULL cart subtotal)
-    if data.subtotal < coupon.min_order_amount:
-        return {
-            "valid": False,
-            "discount": 0,
-            "message": f"Minimum order ₹{coupon.min_order_amount} required"
-        }
-
     # ✅ Discount calculation ONLY on eligible_amount
     discount = 0
 
@@ -139,6 +154,7 @@ def validate_coupon(data: CouponValidateRequest, db: Session = Depends(get_db)):
             discount = min(discount, coupon.max_discount_amount)
 
     elif coupon.discount_type == "fixed":
+        # Apply fixed discount up to the eligible_amount
         discount = min(coupon.discount_value, eligible_amount)
 
     print("Eligible Amount:", eligible_amount)

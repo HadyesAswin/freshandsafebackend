@@ -1,10 +1,56 @@
 "use client";
 
-import { useEffect, useState, use } from "react"; // ✅ Added 'use'
+import { useEffect, useState, use } from "react"; 
 import Link from "next/link";
+import { Scale } from "lucide-react"; // Optional: adds a nice little icon
+
+// Helper to map database status to a progress bar step (0 to 3)
+const getStepIndex = (status: string) => {
+  if (!status) return 0;
+  const s = status.toLowerCase();
+  if (["pending", "confirmed"].includes(s)) return 0;
+  if (["preparing", "ready_for_pickup"].includes(s)) return 1;
+  if (["out_for_delivery"].includes(s)) return 2;
+  if (["delivered"].includes(s)) return 3;
+  return -1; // -1 handles cancelled/unknown
+};
+
+// Helper for dynamic badge colors
+const getBadgeStyle = (status: string) => {
+  if (!status) return 'bg-gray-100 text-gray-700';
+  const s = status.toLowerCase();
+  if (s === 'pending') return 'bg-yellow-100 text-yellow-700';
+  if (s === 'confirmed') return 'bg-blue-100 text-blue-700';
+  if (s === 'preparing') return 'bg-indigo-100 text-indigo-700';
+  if (s === 'ready_for_pickup') return 'bg-orange-100 text-orange-700';
+  if (s === 'out_for_delivery') return 'bg-purple-100 text-purple-700';
+  if (s === 'delivered') return 'bg-green-100 text-green-700';
+  if (s === 'cancelled') return 'bg-red-100 text-red-700';
+  return 'bg-gray-100 text-gray-700';
+};
+
+// ✅ HELPER: Calculates total weight (e.g., 3 x 200g = 600g) for the customer
+const calculateTotalWeight = (qty: number, unitStr: string | undefined) => {
+  if (!unitStr) return "";
+  const unit = unitStr.toLowerCase();
+  const match = unit.match(/(\d+(\.\d+)?)/); 
+  const unitValue = match ? parseFloat(match[0]) : 1;
+
+  if (unit.includes("g") && !unit.includes("k")) {
+    const totalG = qty * unitValue;
+    return totalG >= 1000 ? `${(totalG / 1000).toFixed(1)}kg` : `${totalG}g`;
+  }
+  if (unit.includes("kg")) {
+    return `${(qty * unitValue).toFixed(1)}kg`;
+  }
+  if (unit.includes("pc") || unit.includes("piece")) {
+    return `${qty * unitValue} Pieces`;
+  }
+  return `${qty * unitValue} ${unitStr}`;
+};
 
 export default function OrderDetailsPage({ params }: { params: Promise<{ order_number: string }> }) {
-  // ✅ Next.js 15/16 fix: Unwrap the params promise
+  // Next.js 15/16 fix: Unwrap the params promise
   const unwrappedParams = use(params);
   const orderNumber = unwrappedParams.order_number;
 
@@ -35,6 +81,10 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ order_n
     );
   }
 
+  // Define our 4 core visual steps
+  const trackingSteps = ['Order Placed', 'Preparing Food', 'Out for Delivery', 'Delivered'];
+  const currentStep = getStepIndex(order.status);
+
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-4xl mx-auto px-6">
@@ -55,6 +105,55 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ order_n
           </div>
         </div>
 
+        {/* LIVE ORDER TRACKING PROGRESS BAR */}
+        {order.status?.toLowerCase() !== 'cancelled' ? (
+          <div className="bg-white p-8 rounded-2xl shadow-sm border mb-6 pb-14">
+            <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-10 border-b pb-2">Live Tracking</h3>
+            
+            <div className="relative mx-auto h-16 mt-4" style={{ width: '85%' }}>
+              {/* Background Grey Line */}
+              <div className="absolute left-0 top-0 w-full h-1.5 bg-gray-100 rounded-full z-0"></div>
+              
+              {/* Active Green Line */}
+              <div 
+                className="absolute left-0 top-0 h-1.5 bg-green-500 rounded-full z-0 transition-all duration-1000 ease-out" 
+                style={{ width: `${(Math.max(currentStep, 0) / (trackingSteps.length - 1)) * 100}%` }}
+              ></div>
+              
+              {/* Step Circles & Text */}
+              {trackingSteps.map((step, index) => {
+                const isActive = index <= currentStep;
+                return (
+                  <div 
+                    key={step} 
+                    className="absolute top-0 flex flex-col items-center" 
+                    style={{ 
+                      left: `${(index / (trackingSteps.length - 1)) * 100}%`, 
+                      transform: 'translate(-50%, -40%)' // Centers the circle perfectly on the line
+                    }}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-4 transition-all duration-500 ${
+                      isActive ? 'bg-green-600 border-white text-white shadow-md scale-110' : 'bg-white border-gray-200 text-gray-300'
+                    }`}>
+                      {isActive ? '✓' : index + 1}
+                    </div>
+                    <p className={`mt-3 text-[10px] md:text-xs font-black uppercase tracking-wider absolute top-10 w-24 md:w-32 text-center ${
+                      isActive ? 'text-green-700' : 'text-gray-400'
+                    }`}>
+                      {step}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-red-50 border border-red-100 p-8 rounded-2xl mb-6 text-center shadow-sm">
+            <p className="text-red-600 font-black uppercase tracking-widest text-lg">Order Cancelled</p>
+            <p className="text-red-500 text-sm font-medium mt-1">This order was cancelled and will not be delivered.</p>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-3 gap-6 mb-6">
           {/* Shipping Address Card */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border md:col-span-2">
@@ -73,12 +172,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ order_n
           {/* Status & Payment Card */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border flex flex-col justify-center items-center text-center">
             <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Order Status</h3>
-            <span className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-sm ${
-              order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-              order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-              'bg-blue-100 text-blue-700'
-            }`}>
-              {order.status}
+            <span className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-sm ${getBadgeStyle(order.status)}`}>
+              {order.status?.replace(/_/g, ' ')}
             </span>
             <div className="mt-6 pt-6 border-t w-full">
                 <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Payment via</p>
@@ -107,27 +202,45 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ order_n
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                {order.items.map((item: any) => (
+                {order.items.map((item: any) => {
+                  const totalWeightStr = calculateTotalWeight(item.quantity, item.unit);
+
+                  return (
                     <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="p-6 flex items-center gap-5">
-                        <div className="w-16 h-16 bg-white border rounded-xl overflow-hidden flex-shrink-0 p-1 flex items-center justify-center">
-                        {item.image ? (
-                            <img src={`http://localhost:8000${item.image}`} className="w-full h-full object-contain" alt={item.name} />
-                        ) : (
-                            <div className="text-[10px] text-gray-300">No Image</div>
-                        )}
-                        </div>
-                        <span className="font-bold text-gray-800 leading-tight">{item.name}</span>
-                    </td>
-                    <td className="p-6 text-center text-gray-500 font-medium">₹{item.price.toFixed(2)}</td>
-                    <td className="p-6 text-center">
-                        <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-lg font-black text-sm">
-                            {item.quantity}
-                        </span>
-                    </td>
-                    <td className="p-6 text-right font-black text-gray-800">₹{item.subtotal.toFixed(2)}</td>
+                      <td className="p-6 flex items-center gap-4">
+                          <div className="w-16 h-16 bg-white border rounded-xl overflow-hidden flex-shrink-0 p-1 flex items-center justify-center">
+                          {item.image ? (
+                              <img src={`http://localhost:8000${item.image}`} className="w-full h-full object-contain" alt={item.name} />
+                          ) : (
+                              <div className="text-[10px] text-gray-300">No Image</div>
+                          )}
+                          </div>
+                          <div className="flex flex-col justify-center">
+                            <span className="font-bold text-gray-800 leading-tight">{item.name}</span>
+                            {/* ✅ Shows the customer exactly how much volume/weight they bought */}
+                            {item.unit && (
+                              <span className="text-[10px] font-black text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded uppercase tracking-widest w-fit mt-1.5 flex items-center gap-1 border border-yellow-200">
+                                <Scale className="w-3 h-3 opacity-60" /> {totalWeightStr} Total
+                              </span>
+                            )}
+                          </div>
+                      </td>
+                      
+                      {/* ✅ FIX: Now clearly forces the unit to display (e.g. ₹300.00 / 200g) */}
+                      <td className="p-6 text-center text-gray-700 font-medium">
+                          ₹{item.price.toFixed(2)}
+                          <span className="text-xs text-gray-400 ml-1">/ {item.unit || 'unit'}</span>
+                      </td>
+
+                      <td className="p-6 text-center">
+                          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-lg font-black text-sm border border-gray-200 shadow-inner">
+                              {item.quantity}
+                          </span>
+                      </td>
+                      <td className="p-6 text-right font-black text-gray-800">₹{item.subtotal.toFixed(2)}</td>
                     </tr>
-                ))}
+                  );
+                })}
                 </tbody>
             </table>
           </div>

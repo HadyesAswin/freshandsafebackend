@@ -16,6 +16,7 @@ import {
   Award,
   MessageSquare,
   Newspaper,
+  BookOpen,
   MonitorPlay,
   HelpCircle,
   FileText,
@@ -89,6 +90,7 @@ export default function AdminLayout({
     { name: "Certificates", href: "/admin/certificates", icon: Award },
     { name: "Testimonials", href: "/admin/testimonials", icon: MessageSquare },
     { name: "News", href: "/admin/news", icon: Newspaper },
+    { name: "Blogs", href: "/admin/blogs", icon: BookOpen },
     { name: "Marquee", href: "/admin/marquee", icon: MonitorPlay },
     { name: "FAQs", href: "/admin/faq", icon: HelpCircle },
 

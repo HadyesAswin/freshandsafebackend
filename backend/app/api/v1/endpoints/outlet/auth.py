@@ -33,11 +33,12 @@ def get_current_outlet(
         )
 
     # Standard database lookup
+    # ✅ SOFT DELETE FILTER APPLIED HERE
     outlet = None
     if str(outlet_id).isdigit():
-        outlet = db.query(Outlet).filter(Outlet.id == int(outlet_id)).first()
+        outlet = db.query(Outlet).filter(Outlet.id == int(outlet_id), Outlet.is_deleted == False).first()
     else:
-        outlet = db.query(Outlet).filter(Outlet.email == str(outlet_id)).first()
+        outlet = db.query(Outlet).filter(Outlet.email == str(outlet_id), Outlet.is_deleted == False).first()
     
     if not outlet:
         raise HTTPException(status_code=403, detail="Outlet not found")

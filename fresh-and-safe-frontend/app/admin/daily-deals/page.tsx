@@ -6,20 +6,25 @@ import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, Zap, Image as ImageIcon, Tag } from "lucide-react";
 
 export default function DailyDealsListPage() {
-  const [deals, setDeals] = useState([]);
+  const [deals, setDeals] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]); 
   const router = useRouter();
 
-  const fetchDeals = async () => {
+  const fetchData = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/v1/daily-deals/");
-      setDeals(res.data);
+      const [dealsRes, productsRes] = await Promise.all([
+        axios.get("http://localhost:8000/api/v1/daily-deals/"),
+        axios.get("http://localhost:8000/api/v1/products/")
+      ]);
+      setDeals(dealsRes.data);
+      setProducts(productsRes.data);
     } catch (err) {
-      console.error("Failed to fetch deals", err);
+      console.error("Failed to fetch data", err);
     }
   };
 
   useEffect(() => {
-    fetchDeals();
+    fetchData();
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -30,7 +35,7 @@ export default function DailyDealsListPage() {
       await axios.delete(`http://localhost:8000/api/v1/daily-deals/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchDeals();
+      fetchData(); 
     } catch (err) {
       alert("Error deleting deal");
     }
@@ -50,14 +55,14 @@ export default function DailyDealsListPage() {
             <Zap className="w-6 h-6 text-red-600 fill-red-600" />
             Daily Deals
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Manage time-limited offers and special product discounts.</p>
+          <p className="text-sm text-gray-500 mt-1">Manage products featured in the Daily Deals section.</p>
         </div>
         <Link 
           href="/admin/daily-deals/add" 
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-700 transition-all shadow-sm active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
-          Create New Deal
+          Add Product to Deals
         </Link>
       </div>
 
@@ -65,26 +70,21 @@ export default function DailyDealsListPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {deals.length > 0 ? (
           deals.map((deal: any) => {
-            // Calculate discount percentage for a better "Deal" look
-            const discount = deal.product?.price 
-              ? Math.round(((deal.product.price - deal.offer_price) / deal.product.price) * 100) 
-              : 0;
+            const dealProduct = deal.product || products.find((p: any) => p.id === deal.product_id);
 
             return (
               <div key={deal.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                {discount > 0 && (
-                  <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-tighter">
-                    {discount}% OFF
-                  </div>
-                )}
+                <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-tighter z-10">
+                    FEATURED
+                </div>
 
-                <div className="flex items-start space-x-4">
+                <div className="flex items-start space-x-4 relative z-0">
                   {/* Product Image Preview */}
                   <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 group-hover:border-red-100 transition-colors">
-                      {deal.product?.image ? (
+                      {dealProduct?.image ? (
                         <img 
-                          src={`http://localhost:8000${deal.product.image}`} 
-                          alt={deal.product.name}
+                          src={`http://localhost:8000${dealProduct.image}`} 
+                          alt={dealProduct.name || "Product"}
                           className="w-full h-full object-cover" 
                         />
                       ) : (
@@ -96,16 +96,16 @@ export default function DailyDealsListPage() {
 
                   {/* Deal Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate pr-10" title={deal.product?.name}>
-                      {deal.product?.name || `Product ID: ${deal.product_id}`}
+                    <h3 className="font-semibold text-gray-900 truncate pr-10" title={dealProduct?.name}>
+                      {dealProduct?.name || `Product ID: ${deal.product_id}`}
                     </h3>
                     
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-red-600 font-bold text-xl">
-                        ₹{deal.offer_price}
+                        ₹{dealProduct?.price || deal.offer_price}
                       </span>
-                      <span className="text-gray-400 line-through text-xs font-medium">
-                        {deal.product?.price}
+                      <span className="text-gray-400 text-xs font-medium uppercase tracking-wider">
+                        Standard MRP
                       </span>
                     </div>
                     
@@ -116,7 +116,7 @@ export default function DailyDealsListPage() {
                         className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600 border border-gray-100 rounded-md transition-all"
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                        Edit
+                        Change
                       </button>
                       <button 
                         onClick={() => handleDelete(deal.id)} 
@@ -137,14 +137,14 @@ export default function DailyDealsListPage() {
                 <Tag className="w-8 h-8 text-gray-300" />
              </div>
              <div className="text-center">
-                <p className="text-gray-900 font-semibold">No active deals</p>
-                <p className="text-sm text-gray-500">Create your first daily deal to see it here.</p>
+                <p className="text-gray-900 font-semibold">No featured deals</p>
+                <p className="text-sm text-gray-500">Select products to highlight on the home page.</p>
              </div>
              <Link 
               href="/admin/daily-deals/add" 
               className="text-red-600 font-bold text-sm hover:underline"
             >
-              + Create New Deal
+              + Add Product to Deals
             </Link>
           </div>
         )}

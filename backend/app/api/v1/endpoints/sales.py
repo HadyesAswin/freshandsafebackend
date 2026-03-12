@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import extract, func, desc
+from sqlalchemy import extract, func, desc, or_ # ✅ Added or_
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models import Order, Outlet
+# ✅ Added OrderStatus and PaymentStatus
+from app.models import Order, Outlet, OrderStatus, PaymentStatus
 from typing import Optional, List
 from datetime import date
 
@@ -19,7 +20,14 @@ def get_sales_overview(
     page_size: int = Query(10, ge=1)
 ):
     # 1. Base Query for Orders
-    query = db.query(Order)
+    # ✅ BUGFIX: Only pull orders that are actually valid (Paid online or COD)
+    valid_order_condition = or_(
+        func.lower(Order.payment_method) == "cod",
+        Order.payment_status == PaymentStatus.PAID,
+        Order.order_status != OrderStatus.PENDING
+    )
+    
+    query = db.query(Order).filter(valid_order_condition)
 
     # 2. Apply Filters (Shop, Date, Month, Year)
     if outlet_id:

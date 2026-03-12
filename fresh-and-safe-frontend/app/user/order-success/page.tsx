@@ -1,12 +1,22 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get("order_number") || "Pending...";
+
+  // ✅ State to track if user is a guest or logged in
+  const [isGuest, setIsGuest] = useState(true);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setIsGuest(false);
+    }
+  }, []);
 
   return (
     <div className="bg-white p-8 md:p-12 rounded-3xl shadow-xl max-w-md w-full text-center border-t-8 border-green-500 animate-fadeIn">
@@ -46,12 +56,23 @@ function OrderSuccessContent() {
         >
           Explore More Products
         </Link>
-        <Link 
-          href="/user/account" 
-          className="block w-full py-3 bg-white text-gray-600 font-bold rounded-xl border-2 border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
-        >
-          View My Orders
-        </Link>
+        
+        {/* ✅ DYNAMIC LOGIC: Only show "View My Orders" if NOT a guest */}
+        {!isGuest && (
+          <Link 
+            href="/user/account" 
+            className="block w-full py-3 bg-white text-gray-600 font-bold rounded-xl border-2 border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
+          >
+            View My Orders
+          </Link>
+        )}
+
+        {/* ✅ Helpful note for guests */}
+        {isGuest && (
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight pt-2">
+            Please save your order number for reference
+          </p>
+        )}
       </div>
       
     </div>

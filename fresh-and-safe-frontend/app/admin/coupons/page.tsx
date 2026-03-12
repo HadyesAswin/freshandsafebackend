@@ -7,19 +7,28 @@ import { Plus, Pencil, Trash2, Ticket, Calendar, BarChart3, Tag } from "lucide-r
 
 export default function CouponListPage() {
   const [coupons, setCoupons] = useState([]);
+  const [products, setProducts] = useState<any[]>([]); 
+  const [categories, setCategories] = useState<any[]>([]);
   const router = useRouter();
 
-  const fetchCoupons = async () => {
+  // Fetch Coupons, Products, and Categories simultaneously
+  const fetchData = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/v1/coupons/");
-      setCoupons(res.data);
+      const [couponsRes, productsRes, categoriesRes] = await Promise.all([
+        axios.get("http://localhost:8000/api/v1/coupons/"),
+        axios.get("http://localhost:8000/api/v1/products/"),
+        axios.get("http://localhost:8000/api/v1/categories/")
+      ]);
+      setCoupons(couponsRes.data);
+      setProducts(productsRes.data);
+      setCategories(categoriesRes.data);
     } catch (err) {
-      console.error("Failed to fetch coupons", err);
+      console.error("Failed to fetch data", err);
     }
   };
 
   useEffect(() => {
-    fetchCoupons();
+    fetchData();
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -30,7 +39,7 @@ export default function CouponListPage() {
       await axios.delete(`http://localhost:8000/api/v1/coupons/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchCoupons(); 
+      fetchData(); 
     } catch (err) {
       alert("Error deleting coupon");
     }
@@ -41,6 +50,43 @@ export default function CouponListPage() {
     return new Date(dateString).toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric'
     });
+  };
+
+  // ✅ SUPERCHARGED HELPER: Perfectly maps nested Pydantic schemas
+  const getApplicableNames = (coupon: any) => {
+    if (coupon.applicable_type === 'product') {
+      const pList = coupon.products || coupon.product_ids || [];
+      if (Array.isArray(pList) && pList.length > 0) {
+        return pList.map((item: any) => {
+          // ✅ Catch the newly loaded nested backend data (item.product.name)
+          if (item.product?.name) return item.product.name;
+          
+          // Fallback to searching our products list if it's just an ID
+          const id = item.product?.id || item.product_id || item.id || item;
+          const matched = products.find(p => p.id === id);
+          return matched ? matched.name : `Product #${id}`;
+        }).join(', ');
+      }
+      return "Specific Products";
+    }
+    
+    if (coupon.applicable_type === 'category') {
+      const cList = coupon.categories || coupon.category_ids || [];
+      if (Array.isArray(cList) && cList.length > 0) {
+        return cList.map((item: any) => {
+          // ✅ Catch the newly loaded nested backend data (item.category.name)
+          if (item.category?.name) return item.category.name;
+          
+          // Fallback to searching our categories list if it's just an ID
+          const id = item.category?.id || item.category_id || item.id || item;
+          const matched = categories.find(c => c.id === id);
+          return matched ? matched.name : `Category #${id}`;
+        }).join(', ');
+      }
+      return "Specific Categories";
+    }
+    
+    return "All Store Items";
   };
 
   return (
@@ -73,7 +119,7 @@ export default function CouponListPage() {
                 <th scope="col" className="px-6 py-4 font-medium">Code</th>
                 <th scope="col" className="px-6 py-4 font-medium">Discount</th>
                 <th scope="col" className="px-6 py-4 font-medium">Validity</th>
-                <th scope="col" className="px-6 py-4 font-medium">Type</th>
+                <th scope="col" className="px-6 py-4 font-medium w-1/4">Applies To</th>
                 <th scope="col" className="px-6 py-4 font-medium text-center">Status</th>
                 <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
@@ -88,7 +134,7 @@ export default function CouponListPage() {
                 </tr>
               ) : (
                 coupons.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
+                  <tr key={c.id} className="hover:bg-gray-50 transition-colors group align-top">
                     
                     {/* Coupon Code */}
                     <td className="px-6 py-4">
@@ -122,11 +168,15 @@ export default function CouponListPage() {
                         </div>
                     </td>
 
-                    {/* Applicable Type */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-100">
+                    {/* Applicable Type & EXACT Names */}
+                    <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-100 mb-1">
                             {c.applicable_type}
                         </span>
+                        
+                        <div className="text-xs text-gray-800 font-semibold leading-relaxed mt-1">
+                          {getApplicableNames(c)}
+                        </div>
                     </td>
 
                     {/* Status */}

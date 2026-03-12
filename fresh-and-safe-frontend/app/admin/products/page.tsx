@@ -2,34 +2,58 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Image as ImageIcon, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Image as ImageIcon, Package, Filter } from "lucide-react";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]); 
+  const [selectedCategory, setSelectedCategory] = useState<string>(""); 
   const router = useRouter();
 
-  const fetchProducts = async () => {
-    const res = await axios.get(
-      "http://localhost:8000/api/v1/products/"
-    );
-    setProducts(res.data);
+  // Fetch both products and categories
+  const fetchData = async () => {
+    try {
+      const [productsRes, categoriesRes] = await Promise.all([
+        axios.get("http://localhost:8000/api/v1/products/"),
+        axios.get("http://localhost:8000/api/v1/categories/")
+      ]);
+      setProducts(productsRes.data);
+      setCategories(categoriesRes.data);
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+    }
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchData();
   }, []);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this product?")) return;
     const token = localStorage.getItem("admin_token");
 
-    await axios.delete(
-      `http://localhost:8000/api/v1/products/${id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    fetchProducts();
+    try {
+      await axios.delete(
+        `http://localhost:8000/api/v1/products/${id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchData(); // Refresh the list
+    } catch (error) {
+      alert("Failed to delete product.");
+    }
   };
+
+  // Safe helper to get category name (handles both nested objects and raw IDs)
+  const getCategoryName = (product: any) => {
+    if (product.category?.name) return product.category.name;
+    const matchedCategory = categories.find(c => c.id === product.category_id);
+    return matchedCategory ? matchedCategory.name : "Uncategorized";
+  };
+
+  // Filter products based on selected category
+  const filteredProducts = selectedCategory
+    ? products.filter(p => p.category_id?.toString() === selectedCategory || p.category?.id?.toString() === selectedCategory)
+    : products;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
@@ -49,6 +73,26 @@ export default function ProductsPage() {
         </button>
       </div>
 
+      {/* Filter Bar */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-gray-400 hidden sm:block" />
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+            Filter Category:
+          </label>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full sm:w-auto bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2 outline-none transition-colors min-w-[200px]"
+          >
+            <option value="">All Products</option>
+            {categories.map((cat: any) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Table Container */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -57,21 +101,25 @@ export default function ProductsPage() {
               <tr>
                 <th scope="col" className="px-6 py-4 font-medium w-24 text-center">Image</th>
                 <th scope="col" className="px-6 py-4 font-medium">Name</th>
-                <th scope="col" className="px-6 py-4 font-medium">Price</th>
+                <th scope="col" className="px-6 py-4 font-medium">Category</th>
+                {/* ✅ Updated Header Title */}
+                <th scope="col" className="px-6 py-4 font-medium">Price / Unit</th>
                 <th scope="col" className="px-6 py-4 font-medium text-center">Status</th>
                 <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {products.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Package className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500 font-medium">No products found. Add your first product!</p>
+                    <p className="text-sm text-gray-500 font-medium">
+                      {selectedCategory ? "No products found in this category." : "No products found. Add your first product!"}
+                    </p>
                   </td>
                 </tr>
               ) : (
-                products.map((product) => (
+                filteredProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex justify-center">
@@ -91,14 +139,29 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {product.name}
                     </td>
+                    
+                    <td className="px-6 py-4 text-gray-600">
+                      <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200">
+                        {getCategoryName(product)}
+                      </span>
+                    </td>
+
+                    {/* ✅ Display Unit dynamically next to the Price */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-bold text-gray-900">₹{product.price}</span>
+                      {product.unit && (
+                        <span className="text-xs text-gray-500 font-medium ml-1">
+                          / {product.unit}
+                        </span>
+                      )}
+                      
                       {product.compare_price && (
                         <span className="text-xs text-gray-400 line-through ml-2 font-medium">
                           ₹{product.compare_price}
                         </span>
                       )}
                     </td>
+
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                         product.status 

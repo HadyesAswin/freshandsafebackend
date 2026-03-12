@@ -30,6 +30,20 @@ function NewsFormContent() {
     published_at: "",
   });
 
+  // ✅ AUTO-GENERATE SLUG FROM TITLE (Works for both Adding and Editing)
+  useEffect(() => {
+    if (formData.title) {
+      const generatedSlug = formData.title
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "") // Remove special characters
+        .replace(/[\s_-]+/g, "-") // Replace spaces/underscores with -
+        .replace(/^-+|-+$/g, ""); // Trim dashes from start/end
+      
+      setFormData((prev) => ({ ...prev, slug: generatedSlug }));
+    }
+  }, [formData.title]);
+
   useEffect(() => {
     if (editingId) {
       axios.get(`http://localhost:8000/api/v1/news/`).then((res) => {
@@ -102,7 +116,7 @@ function NewsFormContent() {
   return (
     <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
       
-      {/* Header */}
+      {/* Header Area */}
       <div className="flex items-center gap-4 mb-8">
         <button 
           onClick={() => router.back()} 

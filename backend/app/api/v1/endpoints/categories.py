@@ -13,6 +13,7 @@ from app.models import Category as CategoryModel
 from app.models import User
 from app.schemas.category import Category
 from app.tasks import notify_admin_event
+import time
 
 router = APIRouter()
 
@@ -50,7 +51,8 @@ def read_categories(db: Session = Depends(get_db), skip: int = 0, limit: int = 1
     except Exception:
         pass
 
-    categories = db.query(CategoryModel).offset(skip).limit(limit).all()
+    # ✅ SOFT DELETE FILTER APPLIED HERE
+    categories = db.query(CategoryModel).filter(CategoryModel.is_deleted == False).offset(skip).limit(limit).all()
     
     try:
         redis.setex(cache_key, 600, json.dumps(jsonable_encoder(categories)))
@@ -108,7 +110,8 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_admin),
 ):
-    category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
+    # Ensure they can't update a deleted category
+    category = db.query(CategoryModel).filter(CategoryModel.id == category_id, CategoryModel.is_deleted == False).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     
@@ -142,7 +145,14 @@ def delete_category(
         raise HTTPException(status_code=404, detail="Category not found")
     
     name_backup = category.name
-    db.delete(category)
+    
+    # ✅ SOFT DELETE LOGIC APPLIED HERE
+    category.is_deleted = True
+    category.status = False
+    
+    # ✅ FIX: Modify the slug to free up the original name for future use
+    category.slug = f"{category.slug}-deleted-{int(time.time())}"
+    
     db.commit()
 
     clear_categories_cache()

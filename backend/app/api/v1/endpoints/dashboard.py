@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, or_ # ✅ Added or_ import
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models import User, UserRole, Order, Product, OrderStatus
+# ✅ Added PaymentStatus import
+from app.models import User, UserRole, Order, Product, OrderStatus, PaymentStatus 
 from typing import Optional
 from datetime import date
 import math
@@ -14,14 +15,26 @@ router = APIRouter()
 # ==========================================
 @router.get("/stats")
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    # Total Revenue
-    total_revenue = db.query(func.sum(Order.total_amount)).scalar() or 0
     
-    # Total Orders
-    total_orders = db.query(Order).count()
+    # ✅ BUGFIX: Define the valid orders condition (Paid online OR COD)
+    valid_order_condition = or_(
+        func.lower(Order.payment_method) == "cod",
+        Order.payment_status == PaymentStatus.PAID,
+        Order.order_status != OrderStatus.PENDING
+    )
+
+    # Total Revenue (Only from valid orders)
+    total_revenue = db.query(func.sum(Order.total_amount)).filter(valid_order_condition).scalar() or 0
     
-    # Pending Orders (Action Required)
-    pending_orders = db.query(Order).filter(Order.order_status == OrderStatus.PENDING).count()
+    # Total Orders (Only valid orders)
+    total_orders = db.query(Order).filter(valid_order_condition).count()
+    
+    # Pending Orders (Action Required - meaning valid orders that the shop needs to process)
+    # Usually, a shop only needs to act on CONFIRMED orders. 
+    # If PENDING means "customer hasn't paid", the shop can't take action.
+    pending_orders = db.query(Order).filter(
+        Order.order_status == OrderStatus.CONFIRMED # Changed from PENDING to CONFIRMED
+    ).count()
     
     # Total Customers (Excluding Admins)
     total_customers = db.query(User).filter(User.role == UserRole.CUSTOMER).count()

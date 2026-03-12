@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -10,6 +10,7 @@ class ProductBase(BaseModel):
     slug: str
     description: Optional[str] = None
     image: Optional[str] = None
+    images: Optional[List[str]] = []
 
     price: float
     compare_price: Optional[float] = None

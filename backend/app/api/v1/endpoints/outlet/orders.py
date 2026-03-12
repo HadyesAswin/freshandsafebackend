@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_ # ✅ Added or_ here
 from typing import List
 from datetime import datetime, date, timedelta
 from sqlalchemy import extract
@@ -27,7 +27,12 @@ def get_outlet_stats(db: Session = Depends(get_db), current_outlet: Outlet = Dep
     """
     new_orders_count = db.query(Order).filter(
         Order.outlet_id == current_outlet.id,
-        Order.order_status == OrderStatus.PENDING
+        Order.order_status == OrderStatus.PENDING,
+        # ✅ BUGFIX: Ignore unpaid online orders in the notification counter
+        or_(
+            func.lower(Order.payment_method) == "cod",
+            Order.payment_status == PaymentStatus.PAID
+        )
     ).count()
 
     today_revenue = db.query(func.sum(Order.total_amount)).filter(
@@ -54,7 +59,15 @@ def get_outlet_orders(db: Session = Depends(get_db), current_outlet: Outlet = De
     orders = (
         db.query(Order)
         .options(joinedload(Order.order_items).joinedload(OrderItem.product))
-        .filter(Order.outlet_id == current_outlet.id)
+        .filter(
+            Order.outlet_id == current_outlet.id,
+            # ✅ BUGFIX: Hide orders that are online but not yet paid
+            or_(
+                func.lower(Order.payment_method) == "cod",
+                Order.payment_status == PaymentStatus.PAID,
+                Order.order_status != OrderStatus.PENDING
+            )
+        )
         .order_by(Order.created_at.desc())
         .all()
     )

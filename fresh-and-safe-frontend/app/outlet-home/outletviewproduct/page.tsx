@@ -145,8 +145,15 @@ export default function OutletViewProduct() {
                   <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">
                     {product.category_name}
                   </p>
-                  <div className="mt-2 inline-flex items-center gap-1 font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100 text-sm">
+                  
+                  {/* ✅ Added the Product Unit here! */}
+                  <div className="mt-2 inline-flex items-center font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100 text-sm">
                     ₹{product.price}
+                    {product.unit && (
+                      <span className="text-xs text-gray-500 font-medium ml-1.5">
+                        / {product.unit}
+                      </span>
+                    )}
                   </div>
               </div>
             </div>

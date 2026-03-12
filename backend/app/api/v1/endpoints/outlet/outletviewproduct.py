@@ -47,7 +47,8 @@ def get_outlet_products(outlet_id: int, db: Session = Depends(get_db)):
         pass
 
     # 2️⃣ If not cached → Query DB
-    products = db.query(Product).all()
+    # ✅ SOFT DELETE FILTER APPLIED HERE
+    products = db.query(Product).filter(Product.is_deleted == False).all()
 
     shop_products = db.query(ShopProduct).filter(
         ShopProduct.outlet_id == outlet_id

@@ -1,6 +1,7 @@
 import json
 import shutil
 import os
+import time # ✅ Added for slug timestamping
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -73,7 +74,8 @@ def read_products(
     except Exception:
         pass
 
-    query = db.query(ProductModel)
+    # ✅ SOFT DELETE FILTER APPLIED HERE
+    query = db.query(ProductModel).filter(ProductModel.is_deleted == False)
 
     if category_id:
         query = query.filter(ProductModel.category_id == category_id)
@@ -107,21 +109,27 @@ def create_product(
     meta_description: Optional[str] = Form(None),
     is_available: bool = Form(True),
     status: bool = Form(True),
-    image: Optional[UploadFile] = File(None),
+    images: List[UploadFile] = File(default=[]), # ✅ BUGFIX: Changed to default=[] to fix Pydantic validation error
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_admin),
 ):
-    # Check for image before processing
-    image_url = None
-    if image:
-        image_url = save_upload_file(image)
+    # ✅ Process Multiple Images
+    image_urls = []
+    if images:
+        for img in images:
+            if img.filename:
+                image_urls.append(save_upload_file(img))
+
+    # Fallback to keep primary `image` column populated for backwards compatibility
+    primary_image = image_urls[0] if image_urls else None
 
     product = ProductModel(
         category_id=category_id,
         name=name,
         slug=slug,
         description=description,
-        image=image_url,
+        image=primary_image,
+        images=image_urls, # ✅ SAVE JSON ARRAY
         price=price,
         compare_price=compare_price,
         unit=unit,
@@ -135,7 +143,6 @@ def create_product(
     db.commit()
     db.refresh(product)
 
-    # This will now clear the Shop cache too!
     clear_products_cache()
     
     # notify_admin_event.delay("CREATE", f"New Product Added: {product.name}")
@@ -157,13 +164,32 @@ def update_product(
     meta_description: Optional[str] = Form(None),
     is_available: bool = Form(True),
     status: bool = Form(True),
-    image: Optional[UploadFile] = File(None),
+    existing_images: str = Form("[]"), # ✅ TRACK WHICH OLD IMAGES WERE KEPT
+    images: List[UploadFile] = File(default=[]), # ✅ BUGFIX: Changed to default=[] to fix Pydantic validation error
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_admin),
 ):
-    product = db.query(ProductModel).get(product_id)
+    # Ensure they can't update a deleted product
+    product = db.query(ProductModel).filter(ProductModel.id == product_id, ProductModel.is_deleted == False).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # ✅ Parse existing kept images
+    try:
+        kept_images = json.loads(existing_images)
+    except:
+        kept_images = []
+
+    # ✅ Process newly uploaded images
+    new_image_urls = []
+    if images:
+        for img in images:
+            if img.filename:
+                new_image_urls.append(save_upload_file(img))
+
+    # Combine them
+    all_images = kept_images + new_image_urls
+    primary_image = all_images[0] if all_images else None
 
     product.category_id = category_id
     product.name = name
@@ -176,9 +202,10 @@ def update_product(
     product.status = status
     product.meta_title = meta_title
     product.meta_description = meta_description
-
-    if image:
-        product.image = save_upload_file(image)
+    
+    # Update imagery
+    product.image = primary_image
+    product.images = all_images
 
     db.commit()
     db.refresh(product)
@@ -199,7 +226,13 @@ def delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    db.delete(product)
+    # ✅ SOFT DELETE LOGIC APPLIED HERE
+    product.is_deleted = True
+    product.status = False
+    
+    # ✅ FIX: Modify the slug to free up the original name for future use
+    product.slug = f"{product.slug}-deleted-{int(time.time())}"
+    
     db.commit()
 
     clear_products_cache()

@@ -20,7 +20,7 @@ def read_users(
     current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     users = db.query(User).offset(skip).limit(limit).all()
-    return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
+    return [{"id": u.id,"email": u.email, "role": u.role} for u in users]
 
 
 # --- ✅ NEW Endpoint: Change Admin Password ---

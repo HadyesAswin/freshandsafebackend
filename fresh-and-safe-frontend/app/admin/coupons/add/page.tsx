@@ -105,10 +105,7 @@ function CouponFormContent() {
 
     try {
       if (editingId) {
-         await axios.delete(`http://localhost:8000/api/v1/coupons/${editingId}`, {
-             headers: { Authorization: `Bearer ${token}` }
-         });
-         await axios.post("http://localhost:8000/api/v1/coupons/", payload, {
+         await axios.put(`http://localhost:8000/api/v1/coupons/${editingId}`, payload, {
              headers: { Authorization: `Bearer ${token}` }
          });
       } else {
