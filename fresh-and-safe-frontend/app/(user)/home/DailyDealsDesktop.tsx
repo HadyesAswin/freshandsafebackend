@@ -21,7 +21,7 @@ export default function DailyDeals() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [favorites, setFavorites] = useState<(string | number)[]>([]);
+  const [wishlist, setWishlist] = useState<Deal[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
 
@@ -48,22 +48,65 @@ export default function DailyDeals() {
     fetchDeals();
   }, []);
 
-  const toggleFavorite = (e: React.MouseEvent, id: string | number) => {
-    e.preventDefault(); // Prevent clicking the link
-    e.stopPropagation(); // Stop event bubbling
-    
-    const isAdding = !favorites.includes(id);
-    setFavorites(prev =>
-      isAdding ? [...prev, id] : prev.filter(favId => favId !== id)
-    );
+    // ✅ Load wishlist from localStorage & backend
+  useEffect(() => {
+    const storedWishlist = localStorage.getItem("wishlist");
+    if (storedWishlist) {
+      setWishlist(JSON.parse(storedWishlist));
+    }
 
-    setPopupMessage(isAdding ? "Product added to wishlist" : "Product removed from wishlist");
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      fetch(`http://localhost:8000/api/v1/wishlist/${parsedUser.id}`)
+        .then(res => res.json())
+        .then(dbWishlist => {
+          if (Array.isArray(dbWishlist)) {
+            setWishlist(dbWishlist);
+            localStorage.setItem("wishlist", JSON.stringify(dbWishlist));
+          }
+        })
+        .catch(err => console.error("Failed to fetch wishlist", err));
+    }
+  }, []);
+
+  const toggleWishlist = async (e: React.MouseEvent, product: Deal) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const isLoved = wishlist.some(item => item.id === product.id);
+    let updatedWishlist: Deal[];
+
+    if (isLoved) {
+      updatedWishlist = wishlist.filter(item => item.id !== product.id);
+    } else {
+      updatedWishlist = [...wishlist, product];
+    }
+
+    setWishlist(updatedWishlist);
+    localStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
+
+    setPopupMessage(isLoved ? "Removed from wishlist" : "Added to wishlist");
     setShowPopup(true);
+    setTimeout(() => setShowPopup(false), 2000);
 
-    // Hide popup after 2 seconds
-    setTimeout(() => {
-      setShowPopup(false);
-    }, 2000);
+    // ✅ Sync with backend for logged-in users
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      try {
+        await fetch("http://localhost:8000/api/v1/wishlist/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: parsedUser.id,
+            product_ids: updatedWishlist.map(item => item.id),
+          }),
+        });
+      } catch (error) {
+        console.error("Wishlist sync failed", error);
+      }
+    }
   };
 
   return (
@@ -76,9 +119,9 @@ export default function DailyDeals() {
         }`}
       >
         <div className="bg-slate-900/90 backdrop-blur-lg border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl">
-          <div className={`${popupMessage.includes('added') ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full p-1`}>
+          <div className={`${popupMessage.includes('Added') ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full p-1`}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              {popupMessage.includes('added') ? <polyline points="20 6 9 17 4 12"/> : <line x1="18" y1="6" x2="6" y2="18" />}
+              {popupMessage.includes('Added') ? <polyline points="20 6 9 17 4 12"/> : <line x1="18" y1="6" x2="6" y2="18" />}
             </svg>
           </div>
           <span className="text-sm font-medium text-white whitespace-nowrap">{popupMessage}</span>
@@ -113,7 +156,7 @@ export default function DailyDeals() {
            ))
         ) : (
           deals.map((item) => {
-            const isLiked = favorites.includes(item.id);
+            const isLiked = wishlist.some(w => w.id === item.id);
             
             // Extracts the category string securely
             const categoryDisplay = item.category_name || item.category?.name || item.category || 'Offer';
@@ -126,7 +169,7 @@ export default function DailyDeals() {
                 
                 {/* Favorite Button */}
                 <button 
-                  onClick={(e) => toggleFavorite(e, item.id)}
+                  onClick={(e) => toggleWishlist(e, item)}
                   className={`absolute top-4 right-4 z-20 p-2 bg-white/90 backdrop-blur-sm rounded-full border border-slate-50 transition-all active:scale-90 hover:scale-110 
                     ${isLiked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} 
                   `}

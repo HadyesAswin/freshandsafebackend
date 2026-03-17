@@ -2,11 +2,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 // Define the interface for your banner data
 interface Banner {
   id: number;
   image: string;
+  url?: string;
 }
 
 export default function BannerSliderMobile() {
@@ -59,12 +61,21 @@ export default function BannerSliderMobile() {
             index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
           }`}
         >
-          {/* Prepended localhost URL to the image path */}
-          <img
-            src={`http://localhost:8000${slide.image}`}
-            alt={`Mobile Banner ${index + 1}`}
-            className="w-full h-full object-cover"
-          />
+          {slide.url ? (
+            <Link href={slide.url} className="block w-full h-full">
+              <img
+                src={`http://localhost:8000${slide.image}`}
+                alt={`Mobile Banner ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </Link>
+          ) : (
+            <img
+              src={`http://localhost:8000${slide.image}`}
+              alt={`Mobile Banner ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
+          )}
         </div>
       ))}
 
