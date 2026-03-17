@@ -2,52 +2,46 @@
 import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Image from "next/image";
+import { Loader2, Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  
-  // View State: 'login' -> 'resetPassword'
+
   const [view, setView] = useState<"login" | "resetPassword">("login");
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState("Idle");
 
-  // Reset Password States
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Helper to clear errors when user types
   const handleInput = (setter: (val: string) => void, val: string) => {
     setStatus("Idle");
     setter(val);
   };
 
-  // --- 1. NORMAL LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setStatus("Connecting to Backend...");
+    setStatus("Connecting...");
 
     try {
-      // 1. Prepare data
       const formData = new URLSearchParams();
       formData.append("username", email);
       formData.append("password", password);
 
-      // 2. Send Request
       const response = await axios.post("http://localhost:8000/api/v1/login/access-token", formData, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
 
-      // 3. Success
       localStorage.setItem("admin_token", response.data.access_token);
       setStatus("✅ Success! Redirecting...");
-      
-      // Short delay to let user see success message before redirect
+
       setTimeout(() => {
         router.replace("/admin");
       }, 500);
@@ -55,38 +49,36 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error(err);
       if (err.response && err.response.status === 400) {
-        setStatus("❌ Incorrect email or password. Please try again.");
+        setStatus("❌ Incorrect email or password.");
       } else if (!err.response) {
-        setStatus("❌ Server is unreachable. Is backend running?");
+        setStatus("❌ Server unreachable. Is backend running?");
       } else {
-        setStatus("❌ Login Failed: " + (err.response?.data?.detail || err.message));
+        setStatus("❌ " + (err.response?.data?.detail || err.message));
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. TRIGGER ADMIN OTP DIRECTLY ---
   const handleForgotPasswordClick = async () => {
     setLoading(true);
-    setStatus("Finding admin and sending OTP...");
+    setStatus("Sending OTP...");
 
     try {
       const res = await axios.post("http://localhost:8000/api/v1/login/admin/forgot-password");
-      setView("resetPassword"); 
-      setStatus(`✅ ${res.data.message}`); // Displays the masked email message
+      setView("resetPassword");
+      setStatus(`✅ ${res.data.message}`);
     } catch (err: any) {
-      setStatus("❌ Failed: " + (err.response?.data?.detail || "Server Error"));
+      setStatus("❌ " + (err.response?.data?.detail || "Server Error"));
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 3. SUBMIT NEW PASSWORD ---
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setStatus("Resetting Password...");
+    setStatus("Resetting...");
 
     try {
       if (newPassword !== confirmPassword) {
@@ -99,109 +91,200 @@ export default function LoginPage() {
         confirm_password: confirmPassword
       });
 
-      setStatus("✅ Success! Password Reset. You can now login.");
-      setView("login"); 
-      setPassword(""); // Clear old password from input
+      setStatus("✅ Password reset! You can now login.");
+      setView("login");
+      setPassword("");
       setOtp("");
       setNewPassword("");
       setConfirmPassword("");
 
     } catch (err: any) {
-      setStatus("❌ Failed: " + (err.response?.data?.detail || err.message));
+      setStatus("❌ " + (err.response?.data?.detail || err.message));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md w-96">
-        
-        <h1 className="text-2xl font-bold mb-4 text-green-600">
-          {view === "login" ? "Admin Login" : "Reset Admin Password"}
-        </h1>
-        
-        {/* VIEW 1: NORMAL LOGIN */}
-        {view === "login" && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-green-500" 
-              value={email} 
-              onChange={e => handleInput(setEmail, e.target.value)} 
-              placeholder="Email" 
-              type="email"
-              required
-            />
-            <input 
-              className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-green-500" 
-              type="password" 
-              value={password} 
-              onChange={e => handleInput(setPassword, e.target.value)} 
-              placeholder="Password" 
-              required
-            />
-            <button disabled={loading} className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 transition disabled:opacity-50">
-              {loading ? "Processing..." : "Login"}
-            </button>
-            <div className="flex justify-end">
-              <button 
-                type="button" 
-                onClick={handleForgotPasswordClick}
-                disabled={loading}
-                className="text-sm text-green-600 hover:underline disabled:opacity-50"
-              >
-                Forgot Password?
-              </button>
-            </div>
-          </form>
-        )}
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
 
-        {/* VIEW 2: VERIFY OTP & SET NEW PASSWORD */}
-        {view === "resetPassword" && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <input
-              className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none tracking-widest text-center font-bold"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter 6-digit OTP"
-              required
-              maxLength={6}
-            />
-            <input
-              className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New Password"
-              required
-            />
-            <input
-              className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm Password"
-              required
-            />
-            <button disabled={loading} className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50 font-bold transition">
-              {loading ? "Processing..." : "Reset Password"}
-            </button>
-            <div className="flex justify-center mt-2">
-              <button type="button" onClick={() => { setView("login"); setStatus("Idle"); }} className="text-sm text-gray-500 hover:text-green-600 transition">
-                Cancel Reset
+      {/* Background Pattern */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f910_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f910_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#00b8d9]/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="w-full max-w-[420px] relative z-10">
+
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <Image
+            src="/FRESH & SAFE LOGO.png"
+            alt="Fresh & Safe"
+            width={180}
+            height={80}
+            style={{ width: '100px', height: 'auto' }}
+            className="object-contain"
+            priority
+          />
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-3xl border border-slate-100 p-8 md:p-10">
+
+          {/* Header */}
+          <div className="text-center mb-8">
+
+            <h1 className="text-xl font-extrabold text-slate-900 mb-1">
+              {view === "login" ? "Admin Login" : "Reset Password"}
+            </h1>
+            <p className="text-slate-400 text-xs">
+              {view === "login"
+                ? "Enter your credentials to access the dashboard."
+                : "Enter the OTP sent to your admin email."}
+            </p>
+          </div>
+
+          {/* VIEW 1: LOGIN */}
+          {view === "login" && (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => handleInput(setEmail, e.target.value)}
+                    placeholder="admin@freshandsafe.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#00b8d9] transition-all placeholder:text-slate-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={e => handleInput(setPassword, e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-12 text-sm font-semibold outline-none focus:bg-white focus:border-[#00b8d9] transition-all placeholder:text-slate-400"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                disabled={loading}
+                className="w-full bg-[#00b8d9] hover:bg-[#00a2bf] text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70"
+              >
+                {loading ? <><Loader2 size={18} className="animate-spin" /> Signing in...</> : "Sign In"}
               </button>
+
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleForgotPasswordClick}
+                  disabled={loading}
+                  className="text-xs font-bold text-slate-400 hover:text-[#00b8d9] transition-colors disabled:opacity-50"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* VIEW 2: RESET PASSWORD */}
+          {view === "resetPassword" && (
+            <form onSubmit={handleResetPassword} className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">OTP Code</label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm font-bold outline-none focus:bg-white focus:border-[#00b8d9] transition-all tracking-widest text-center placeholder:tracking-normal placeholder:text-slate-400 placeholder:font-semibold"
+                    required
+                    maxLength={6}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#00b8d9] transition-all placeholder:text-slate-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#00b8d9] transition-all placeholder:text-slate-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                disabled={loading}
+                className="w-full bg-[#00b8d9] hover:bg-[#00a2bf] text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70"
+              >
+                {loading ? <><Loader2 size={18} className="animate-spin" /> Resetting...</> : "Reset Password"}
+              </button>
+
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setView("login"); setStatus("Idle"); }}
+                  className="text-xs font-bold text-slate-400 hover:text-[#00b8d9] transition-colors"
+                >
+                  ← Back to Login
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Status Message */}
+          {status !== "Idle" && (
+            <div className={`mt-6 text-xs font-bold text-center p-3 rounded-xl ${
+              status.startsWith("❌") ? "bg-rose-50 text-rose-600 border border-rose-100" :
+              status.startsWith("✅") ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
+              "bg-slate-50 text-slate-500 border border-slate-100"
+            }`}>
+              {status}
             </div>
-          </form>
-        )}
-        
-        {/* Status Message Area */}
-        <p className={`mt-4 text-sm font-bold text-center p-2 rounded ${
-          status.startsWith("❌") ? "bg-red-100 text-red-600" : 
-          status.startsWith("✅") ? "bg-green-100 text-green-700" : 
-          status !== "Idle" ? "bg-gray-100 text-gray-600" : "hidden"
-        }`}>
-          {status}
-        </p>
+          )}
+        </div>
+
+
       </div>
     </div>
   );
