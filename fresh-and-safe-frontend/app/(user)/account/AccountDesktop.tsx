@@ -348,7 +348,7 @@ export default function AccountPage() {
   const unavailableItemsCount = wishlist.filter(item => item.is_available === false).length;
 
   return (
-    <div className="bg-[#fafaf9] min-h-screen text-[#1e293b] antialiased font-sans">
+    <div className="bg-slate-50 min-h-screen text-slate-900 antialiased font-sans">
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-10 flex gap-8">
         
         {/* ================= SIDEBAR NAVIGATION ================= */}
