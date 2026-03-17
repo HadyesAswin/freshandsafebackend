@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-// Define the interface based on your backend structure
 interface Deal {
   id: string | number;
   name: string;
@@ -18,12 +17,14 @@ interface Deal {
 export default function DailyDealsMobile() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlist, setWishlist] = useState<Deal[]>([]);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
 
   // Fetch real backend data
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        // Grab zipcode from localStorage if available, otherwise pass empty string
         const storedZip = localStorage.getItem("zipcode") || "";
         const response = await fetch(`http://localhost:8000/api/v1/location-products?zipcode=${storedZip}`);
         
@@ -41,14 +42,84 @@ export default function DailyDealsMobile() {
     fetchDeals();
   }, []);
 
+  // ✅ Load wishlist from localStorage & backend
+  useEffect(() => {
+    const storedWishlist = localStorage.getItem("wishlist");
+    if (storedWishlist) setWishlist(JSON.parse(storedWishlist));
+
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      fetch(`http://localhost:8000/api/v1/wishlist/${parsedUser.id}`)
+        .then(res => res.json())
+        .then(dbWishlist => {
+          if (Array.isArray(dbWishlist)) {
+            setWishlist(dbWishlist);
+            localStorage.setItem("wishlist", JSON.stringify(dbWishlist));
+          }
+        })
+        .catch(err => console.error("Failed to fetch wishlist", err));
+    }
+  }, []);
+
+  // ✅ Toggle wishlist with localStorage + backend sync
+  const toggleWishlist = async (e: React.MouseEvent, product: Deal) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const isLoved = wishlist.some(item => item.id === product.id);
+    let updatedWishlist: Deal[];
+
+    if (isLoved) {
+      updatedWishlist = wishlist.filter(item => item.id !== product.id);
+    } else {
+      updatedWishlist = [...wishlist, product];
+    }
+
+    setWishlist(updatedWishlist);
+    localStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
+
+    setPopupMessage(isLoved ? "Removed from wishlist" : "Added to wishlist");
+    setShowPopup(true);
+    setTimeout(() => setShowPopup(false), 2000);
+
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      try {
+        await fetch("http://localhost:8000/api/v1/wishlist/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: parsedUser.id,
+            product_ids: updatedWishlist.map(item => item.id),
+          }),
+        });
+      } catch (error) {
+        console.error("Wishlist sync failed", error);
+      }
+    }
+  };
+
   return (
     <section>
+      {/* Toast Popup */}
+      <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[120] transition-all duration-500 ease-out pointer-events-none ${showPopup ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-10 scale-95'}`}>
+        <div className="bg-slate-900/90 backdrop-blur-lg border border-white/10 px-5 py-2.5 rounded-2xl flex items-center gap-2.5">
+          <div className={`${popupMessage.includes('Added') ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full p-1`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              {popupMessage.includes('Added') ? <polyline points="20 6 9 17 4 12"/> : <line x1="18" y1="6" x2="6" y2="18" />}
+            </svg>
+          </div>
+          <span className="text-xs font-medium text-white whitespace-nowrap">{popupMessage}</span>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-4 px-2">
         <h2 className="text-xl font-extrabold text-slate-900">
           Daily <span className="text-[#00b8d9]">Deals</span>
         </h2>
         
-        {/* Restored Swipe Hint with Standard SVG Arrow */}
         <div className="flex items-center gap-1 text-xs font-bold text-slate-400">
           <span>Swipe</span>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -62,7 +133,6 @@ export default function DailyDealsMobile() {
       <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         
         {loading ? (
-          /* Mobile Loading Skeleton */
           Array.from({ length: 4 }).map((_, i) => (
             <div 
               key={i} 
@@ -80,39 +150,56 @@ export default function DailyDealsMobile() {
             </div>
           ))
         ) : (
-          deals.map((item) => (
-            <div 
-              key={item.id} 
-              className="min-w-[160px] max-w-[160px] snap-start bg-white border border-slate-100 rounded-2xl p-3"
-            >
-              <Link href={`/product/${item.slug || item.id}`} className="block">
-                <div className="h-32 rounded-xl overflow-hidden mb-3 relative bg-slate-50 flex items-center justify-center">
-                  {item.image ? (
-                    <img 
-                      src={`http://localhost:8000${item.image}`} 
-                      alt={item.name} 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : (
-                    <span className="text-3xl">🥩</span> // Fallback icon
-                  )}
-                </div>
-                
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-slate-800 text-xs line-clamp-2 h-8 leading-tight">
-                    {item.name}
-                  </h3>
-                  <p className="text-[10px] text-slate-400">{item.weight || '1 Pack'}</p>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="font-bold text-emerald-600 text-sm">₹{item.price}</span>
-                    {item.compare_price && (
-                      <span className="text-[10px] text-slate-400 line-through">₹{item.compare_price}</span>
+          deals.map((item) => {
+            const isLiked = wishlist.some(w => w.id === item.id);
+            return (
+              <div 
+                key={item.id} 
+                className="min-w-[160px] max-w-[160px] snap-start bg-white border border-slate-100 rounded-2xl p-3 relative"
+              >
+                {/* Wishlist Button */}
+                <button
+                  onClick={(e) => toggleWishlist(e, item)}
+                  className="absolute top-2 right-2 z-20 p-1.5 bg-white/90 backdrop-blur-sm rounded-full border border-slate-50 active:scale-90 transition-transform"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                    fill={isLiked ? "#10b981" : "none"}
+                    stroke={isLiked ? "#10b981" : "#94a3b8"}
+                    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.505 4.046 3 5.5L12 21Z" />
+                  </svg>
+                </button>
+
+                <Link href={`/product/${item.slug || item.id}`} className="block">
+                  <div className="h-32 rounded-xl overflow-hidden mb-3 relative bg-slate-50 flex items-center justify-center">
+                    {item.image ? (
+                      <img 
+                        src={`http://localhost:8000${item.image}`} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                    ) : (
+                      <span className="text-3xl">🥩</span>
                     )}
                   </div>
-                </div>
-              </Link>
-            </div>
-          ))
+                  
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-slate-800 text-xs line-clamp-2 h-8 leading-tight">
+                      {item.name}
+                    </h3>
+                    <p className="text-[10px] text-slate-400">{item.weight || '1 Pack'}</p>
+                    <div className="flex items-baseline gap-1.5 mt-2">
+                      <span className="font-bold text-emerald-600 text-sm">₹{item.price}</span>
+                      {item.compare_price && (
+                        <span className="text-[10px] text-slate-400 line-through">₹{item.compare_price}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            );
+          })
         )}
       </div>
     </section>

@@ -35,6 +35,25 @@ interface CartItem {
   is_available?: boolean;
 }
 
+// ✅ Deduplicate cart items — warn in dev, merge as safety net
+const deduplicateCart = (items: CartItem[]): CartItem[] => {
+  const map = new Map<number, CartItem>();
+  let hasDuplicates = false;
+  items.forEach(item => {
+    if (map.has(item.id)) {
+      hasDuplicates = true;
+      const existing = map.get(item.id)!;
+      map.set(item.id, { ...existing, quantity: existing.quantity + item.quantity });
+    } else {
+      map.set(item.id, { ...item });
+    }
+  });
+  if (hasDuplicates) {
+    console.warn("⚠️ DUPLICATE CART ITEMS FROM BACKEND!", items.map(i => `id:${i.id} qty:${i.quantity}`));
+  }
+  return Array.from(map.values());
+};
+
 const CartMobile: React.FC = () => {
   const router = useRouter();
 
@@ -146,8 +165,9 @@ const CartMobile: React.FC = () => {
           if (validCart.length === 0 && localCart.length > 0) {
             updateCartStorage(localCart, parsedUser);
           } else {
-            setCart(validCart);
-            localStorage.setItem("cart", JSON.stringify(validCart));
+            const dedupedCart = deduplicateCart(validCart);
+            setCart(dedupedCart);
+            localStorage.setItem("cart", JSON.stringify(dedupedCart));
           }
           setLoading(false);
         })
@@ -162,11 +182,12 @@ const CartMobile: React.FC = () => {
           .then(res => res.json())
           .then(validatedCart => {
             const validCart = Array.isArray(validatedCart) ? validatedCart : [];
-            setCart(validCart);
-            localStorage.setItem("cart", JSON.stringify(validCart));
+            const dedupedCart = deduplicateCart(validCart);
+            setCart(dedupedCart);
+            localStorage.setItem("cart", JSON.stringify(dedupedCart));
             setLoading(false);
           })
-          .catch(() => { setCart(localCart); setLoading(false); });
+          .catch(() => { setCart(deduplicateCart(localCart)); setLoading(false); });
       } else {
         setCart([]);
         setLoading(false);
@@ -440,11 +461,11 @@ const CartMobile: React.FC = () => {
 
       {/* Cart Items */}
       <div className="px-4 mt-5 space-y-3">
-        {cart.map(item => {
+        {cart.map((item, index) => {
           const totalWeight = calculateTotalWeight(item.quantity, item.unit);
           const isUnavailable = item.is_available === false;
           return (
-            <div key={item.id} className={`bg-white p-3.5 rounded-2xl border relative ${isUnavailable ? 'opacity-60 border-rose-200 bg-rose-50/30' : 'border-slate-100'}`}>
+            <div key={`${item.id}-${index}`} className={`bg-white p-3.5 rounded-2xl border relative ${isUnavailable ? 'opacity-60 border-rose-200 bg-rose-50/30' : 'border-slate-100'}`}>
               {isUnavailable && (
                 <div className="absolute top-0 left-0 bg-rose-500 text-white px-2.5 py-1 rounded-br-xl rounded-tl-2xl z-10">
                   <span className="text-[8px] font-bold uppercase tracking-wider">Unavailable</span>
@@ -471,7 +492,7 @@ const CartMobile: React.FC = () => {
                 </div>
                 <Link href={isUnavailable ? '#' : `/product/${item.slug}`} className="w-20 h-20 flex-shrink-0 bg-slate-50 rounded-xl overflow-hidden border border-slate-100 mt-1">
                   {item.image ? (
-                    <img src={`http://localhost:8000${item.image}`} className="w-full h-full object-contain" alt={item.name} />
+                    <img src={`http://localhost:8000${item.image}`} className="w-full h-full object-cover" alt={item.name} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-300 font-bold uppercase">No Img</div>
                   )}

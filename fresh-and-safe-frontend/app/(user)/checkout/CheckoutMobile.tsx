@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Loader2,
   MapPin,
-  ChevronLeft,
   ShieldCheck,
   Package,
   Tag,
@@ -280,12 +279,7 @@ export default function CheckoutMobile() {
     <div className="min-h-screen bg-slate-50 pb-44 font-sans">
       {/* Sticky Header */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 h-14 flex items-center justify-between">
-        <button
-          onClick={() => router.push("/cart")}
-          className="text-slate-900 p-2 -ml-2"
-        >
-          <ChevronLeft size={24} />
-        </button>
+        <Link href="/cart" className="text-slate-900 p-2"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg></Link>
         <span className="font-semibold text-sm">Checkout</span>
         <div className="w-10"></div>
       </div>
@@ -366,25 +360,6 @@ export default function CheckoutMobile() {
                     </p>
                   )}
                 </div>
-                {deliveryAddress.latitude && deliveryAddress.longitude && (
-                  <div className="flex-shrink-0 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-3 h-3"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-[8px] font-bold uppercase tracking-wider">
-                      GPS
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -412,7 +387,7 @@ export default function CheckoutMobile() {
                     <img
                       src={`http://localhost:8000${item.image}`}
                       alt={item.name}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[7px] text-gray-300 font-bold uppercase">
@@ -545,11 +520,6 @@ export default function CheckoutMobile() {
               )}
             </div>
 
-            {deliveryFee === 0 && subtotal > 500 && (
-              <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider text-center border border-emerald-100">
-                🎉 Free delivery on orders above ₹500
-              </div>
-            )}
 
             {discount.amount > 0 && (
               <div className="flex justify-between text-emerald-600">
@@ -566,10 +536,6 @@ export default function CheckoutMobile() {
               </div>
             )}
 
-            <div className="flex justify-between">
-              <span className="text-xs">Taxes</span>
-              <span className="font-bold text-slate-800 text-xs">₹0.00</span>
-            </div>
           </div>
 
           <div className="px-4 py-3 border-t border-slate-50">

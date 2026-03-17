@@ -31,6 +31,7 @@ export default function MobileNavbar() {
 
   // ================= AUTH STATE =================
   const [user, setUser] = useState<any>(null);
+  const [cartCount, setCartCount] = useState(0);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP' | 'REGISTER'>('PHONE');
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -63,7 +64,22 @@ export default function MobileNavbar() {
       setUser(storedUser ? JSON.parse(storedUser) : null);
     };
     checkUser();
-    const interval = setInterval(checkUser, 1000); // Poll for instant logout updates
+
+    // ✅ Track cart count
+    const updateCartCount = () => {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        try {
+          const parsed = JSON.parse(storedCart);
+          setCartCount(Array.isArray(parsed) ? parsed.length : 0);
+        } catch { setCartCount(0); }
+      } else {
+        setCartCount(0);
+      }
+    };
+    updateCartCount();
+
+    const interval = setInterval(() => { checkUser(); updateCartCount(); }, 1000); // Poll for instant logout updates
     window.addEventListener('storage', checkUser);
 
     const storedZip = localStorage.getItem("zipcode");
@@ -253,7 +269,7 @@ export default function MobileNavbar() {
     { name: "Home", href: "/", icon: Home },
     { name: "Categories", href: "#", icon: LayoutGrid, isModalTrigger: true },
     { name: "Search", href: "#", icon: Search, isSpecial: true },
-    { name: "Cart", href: "/cart", icon: ShoppingBag, badge: 2 },
+    { name: "Cart", href: "/cart", icon: ShoppingBag },
     { name: "Account", href: "#", icon: UserCircle, isAccount: true },
   ];
 
@@ -345,9 +361,9 @@ export default function MobileNavbar() {
                     ${isActive ? "bg-emerald-500 text-white" : "text-slate-500 bg-transparent group-hover:bg-slate-50"}
                 `}>
                   <Icon size={22} strokeWidth={1.8} />
-                  {item.badge && (
-                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">
-                      {item.badge}
+                  {item.name === "Cart" && cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">
+                      {cartCount > 99 ? '99+' : cartCount}
                     </span>
                   )}
                 </div>

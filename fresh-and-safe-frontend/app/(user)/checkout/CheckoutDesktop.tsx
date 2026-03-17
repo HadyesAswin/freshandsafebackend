@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPin, ChevronLeft, ShieldCheck, Package, Tag, Truck, CreditCard, AlertCircle } from "lucide-react";
-
+import { Loader2, MapPin, ShieldCheck, Package, Tag, Truck, CreditCard, AlertCircle } from "lucide-react";
 interface CartItem {
   id: number;
   name: string;
@@ -287,14 +286,6 @@ export default function CheckoutPage() {
     <main className="min-h-screen bg-slate-50 pt-8 pb-20 font-sans">
       <div className="max-w-5xl mx-auto px-6">
 
-        {/* Back to Cart — Mobile & Tablet only */}
-        <button
-          onClick={() => router.push("/cart")}
-          className="lg:hidden text-sm font-bold text-slate-400 hover:text-[#00b8d9] transition-colors mb-8 flex items-center gap-1.5"
-        >
-          <ChevronLeft size={16} strokeWidth={3} /> Back to Cart
-        </button>
-
         {/* Page Title */}
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
           Checkout
@@ -383,25 +374,7 @@ export default function CheckoutPage() {
                         </p>
                       )}
                     </div>
-                    {deliveryAddress.latitude && deliveryAddress.longitude && (
-                      <div className="flex-shrink-0 bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          className="w-3.5 h-3.5"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          GPS Verified
-                        </span>
-                      </div>
-                    )}
+
                   </div>
                 </div>
               )}
@@ -433,7 +406,7 @@ export default function CheckoutPage() {
                         <img
                           src={`http://localhost:8000${item.image}`}
                           alt={item.name}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-300 font-bold uppercase">
@@ -571,13 +544,6 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* Free Delivery Notice */}
-                {deliveryFee === 0 && subtotal > 500 && (
-                  <div className="bg-emerald-50 text-emerald-700 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider text-center border border-emerald-100">
-                    🎉 Free delivery on orders above ₹500
-                  </div>
-                )}
-
                 {/* Discount */}
                 {discount.amount > 0 && (
                   <div className="flex justify-between text-emerald-600">
@@ -593,11 +559,6 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                 )}
-
-                <div className="flex justify-between">
-                  <span>Taxes</span>
-                  <span className="font-bold text-slate-800">₹0.00</span>
-                </div>
               </div>
 
               {/* Total */}

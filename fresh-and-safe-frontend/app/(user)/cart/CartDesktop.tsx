@@ -35,6 +35,25 @@ interface CartItem {
   is_available?: boolean;
 }
 
+// ✅ Deduplicate cart items — warn in dev, merge as safety net
+const deduplicateCart = (items: CartItem[]): CartItem[] => {
+  const map = new Map<number, CartItem>();
+  let hasDuplicates = false;
+  items.forEach(item => {
+    if (map.has(item.id)) {
+      hasDuplicates = true;
+      const existing = map.get(item.id)!;
+      map.set(item.id, { ...existing, quantity: existing.quantity + item.quantity });
+    } else {
+      map.set(item.id, { ...item });
+    }
+  });
+  if (hasDuplicates) {
+    console.warn("⚠️ DUPLICATE CART ITEMS FROM BACKEND!", items.map(i => `id:${i.id} qty:${i.quantity}`));
+  }
+  return Array.from(map.values());
+};
+
 const CartDesktop: React.FC = () => {
   const router = useRouter();
 
@@ -177,8 +196,9 @@ const CartDesktop: React.FC = () => {
           if (validCart.length === 0 && localCart.length > 0) {
             updateCartStorage(localCart, parsedUser);
           } else {
-            setCart(validCart);
-            localStorage.setItem("cart", JSON.stringify(validCart));
+            const dedupedCart = deduplicateCart(validCart);
+            setCart(dedupedCart);
+            localStorage.setItem("cart", JSON.stringify(dedupedCart));
           }
           setLoading(false);
         })
@@ -196,12 +216,13 @@ const CartDesktop: React.FC = () => {
           .then((res) => res.json())
           .then((validatedCart) => {
             const validCart = Array.isArray(validatedCart) ? validatedCart : [];
-            setCart(validCart);
-            localStorage.setItem("cart", JSON.stringify(validCart));
+            const dedupedCart = deduplicateCart(validCart);
+            setCart(dedupedCart);
+            localStorage.setItem("cart", JSON.stringify(dedupedCart));
             setLoading(false);
           })
           .catch(() => {
-            setCart(localCart);
+            setCart(deduplicateCart(localCart));
             setLoading(false);
           });
       } else {
@@ -572,7 +593,7 @@ const CartDesktop: React.FC = () => {
           </p>
           <Link
             href="/"
-            className="bg-[#00b8d9] text-white px-8 py-3 rounded-2xl font-bold hover:-translate-y-1 transition-transform inline-block shadow-lg shadow-cyan-100"
+            className="bg-[#00b8d9] text-white px-8 py-3 rounded-2xl font-bold hover:-translate-y-1 transition-transform inline-block"
           >
             Start Shopping
           </Link>
@@ -595,7 +616,7 @@ const CartDesktop: React.FC = () => {
       {/* ADDRESS MODAL */}
       {addressModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl p-8 rounded-[2rem] shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl p-8 rounded-[2rem] relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setAddressModalOpen(false)}
               className="absolute right-6 top-6 text-slate-400 hover:text-rose-500 transition bg-slate-50 hover:bg-rose-50 rounded-full p-2"
@@ -625,8 +646,8 @@ const CartDesktop: React.FC = () => {
                         isOutOfZone
                           ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50"
                           : isSelected
-                          ? "border-[#00b8d9] bg-cyan-50 cursor-pointer shadow-sm"
-                          : "border-slate-100 hover:border-[#00b8d9] cursor-pointer bg-white shadow-sm"
+                          ? "border-[#00b8d9] bg-cyan-50 cursor-pointer"
+                          : "border-slate-100 hover:border-[#00b8d9] cursor-pointer bg-white"
                       }`}
                     >
                       {isSelected && (
@@ -685,7 +706,7 @@ const CartDesktop: React.FC = () => {
                     type="button"
                     onClick={handleGetExactLocation}
                     disabled={isLocating}
-                    className="w-full mb-4 py-3.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 font-bold text-[#00b8d9] hover:border-[#00b8d9] transition-all shadow-sm"
+                    className="w-full mb-4 py-3.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 font-bold text-[#00b8d9] hover:border-[#00b8d9] transition-all"
                   >
                     {isLocating ? (
                       <Loader2 size={18} className="animate-spin" />
@@ -694,7 +715,7 @@ const CartDesktop: React.FC = () => {
                     )}{" "}
                     Detect Live Location
                   </button>
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 h-56 mb-4 relative z-0 shadow-inner">
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 h-56 mb-4 relative z-0">
                     <MapPicker
                       latitude={formData.latitude}
                       longitude={formData.longitude}
@@ -833,7 +854,7 @@ const CartDesktop: React.FC = () => {
             : "opacity-0 translate-y-10 scale-95 pointer-events-none"
         }`}
       >
-        <div className="bg-slate-900/90 backdrop-blur-lg border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl">
+        <div className="bg-slate-900/90 backdrop-blur-lg border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-3">
           <div className="bg-rose-500 rounded-full p-1 flex-shrink-0">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -879,12 +900,12 @@ const CartDesktop: React.FC = () => {
       <div className="flex flex-row gap-12">
         {/* Left Side: Cart Items */}
         <div className="flex-1 flex flex-col gap-6">
-          {cart.map((item) => {
+            {cart.map((item, index) => {
             const totalWeight = calculateTotalWeight(item.quantity, item.unit);
             const isUnavailable = item.is_available === false;
             return (
               <div
-                key={item.id}
+                key={`${item.id}-${index}`}
                 className={`bg-white p-5 rounded-3xl border flex flex-row gap-6 relative group transition-all ${
                   isUnavailable
                     ? "opacity-60 border-rose-200 bg-rose-50/30"
@@ -933,7 +954,7 @@ const CartDesktop: React.FC = () => {
                     <img
                       src={`http://localhost:8000${item.image}`}
                       alt={item.name}
-                      className={`w-full h-full object-contain ${
+                      className={`w-full h-full object-cover ${
                         !isUnavailable &&
                         "group-hover:scale-110 transition-transform duration-500"
                       }`}
@@ -982,7 +1003,7 @@ const CartDesktop: React.FC = () => {
                       </span>
                       <button
                         onClick={() => increaseQuantity(item.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow-sm text-[#00b8d9] hover:bg-[#00b8d9] hover:text-white transition font-bold text-lg"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-[#00b8d9]/20 text-[#00b8d9] hover:bg-[#00b8d9] hover:text-white transition font-bold text-lg"
                       >
                         +
                       </button>
@@ -1010,7 +1031,7 @@ const CartDesktop: React.FC = () => {
 
         {/* Right Side: Summary & Checkout */}
         <div className="w-[380px] flex-shrink-0">
-          <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 sticky top-28 border border-slate-100">
+          <div className="bg-white rounded-3xl p-6 sticky top-28 border border-slate-100">
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -1148,7 +1169,7 @@ const CartDesktop: React.FC = () => {
                 unavailableItemsCount === 0 &&
                 availableItems.length > 0 &&
                 !isCalculatingFee
-                  ? "bg-[#00b8d9] text-white hover:-translate-y-1 shadow-lg shadow-cyan-100/50"
+                  ? "bg-[#00b8d9] text-white hover:-translate-y-1"
                   : "bg-slate-200 text-slate-400 cursor-not-allowed"
               }`}
             >

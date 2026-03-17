@@ -64,8 +64,23 @@ export default function DesktopNavbar() {
       const storedUser = localStorage.getItem("user");
       setUser(storedUser ? JSON.parse(storedUser) : null);
     };
-    checkUser(); 
-    const interval = setInterval(checkUser, 1000); 
+    checkUser();
+
+    // ✅ Track cart count
+    const updateCartCount = () => {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        try {
+          const parsed = JSON.parse(storedCart);
+          setCartCount(Array.isArray(parsed) ? parsed.length : 0);
+        } catch { setCartCount(0); }
+      } else {
+        setCartCount(0);
+      }
+    };
+    updateCartCount();
+
+    const interval = setInterval(() => { checkUser(); updateCartCount(); }, 1000);
     window.addEventListener('storage', checkUser);
 
     // 👇 ADD THE AUTO-OPEN LOGIC HERE 👇
@@ -383,7 +398,7 @@ export default function DesktopNavbar() {
   // --- Realtime Marquee ---
   const MarqueeContent = () => {
     // If backend sends a single merged string (often separated by |), split it so it spaces out nicely
-    const contentString = marquee || "Grab 20% Flat OFF on your first order! 🎉 Use Coupon FIRST20 | Free delivery on orders above ₹499! 🚛";
+    const contentString = marquee || "";
     const items = contentString.split('|').map(item => item.trim());
 
     return (
@@ -398,7 +413,7 @@ export default function DesktopNavbar() {
   return (
     <>
       {/* 1. TOP MARQUEE BAR */}
-      <div className="hidden md:flex bg-[#00b8d9] text-slate-800 text-[10px] uppercase tracking-[0.2em] py-2 px-8 justify-between items-center font-bold">
+      <div className={`hidden md:flex bg-[#00b8d9] text-slate-800 text-[10px] uppercase tracking-[0.2em] py-2 px-8 justify-between items-center font-bold ${!marquee ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}>
         <div className="flex gap-6 min-w-max z-10 bg-[#00b8d9] pr-4">
           <span>Call: 1800-SAFE-FRESH</span>
         </div>
@@ -541,9 +556,11 @@ export default function DesktopNavbar() {
 
             <Link href="/cart" className="bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center relative hover:bg-slate-800 transition-colors">
               <ShoppingBag size={20} />
-              <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[10px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
-                2
-              </span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[10px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>
@@ -564,15 +581,10 @@ export default function DesktopNavbar() {
                   </Link>
               ))
             ) : (
-              ['Fish & Seafood', 'Poultry', 'Mutton & Lamb', 'Ready to Cook', 'Eggs & Dairy'].map((cat) => (
-                  <Link 
-                      key={cat} 
-                      href={`/categories/${cat.toLowerCase().replace(/ /g, '-')}`} 
-                      className="relative px-4 py-2 text-xs font-semibold text-slate-500 hover:text-[#00b8d9] transition-colors duration-300 group"
-                  >
-                      {cat}
-                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#00b8d9] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-full"></span>
-                  </Link>
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-4 py-2">
+                  <div className="h-3 w-20 bg-slate-100 rounded animate-pulse"></div>
+                </div>
               ))
             )}
         </nav>
