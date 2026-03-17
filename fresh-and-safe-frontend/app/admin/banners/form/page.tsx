@@ -1,9 +1,7 @@
 "use client";
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
-import ReactCrop, { type Crop } from "react-image-crop";
-import "react-image-crop/dist/ReactCrop.css"; // Required CSS for the crop grid
 import { 
   ArrowLeft, 
   Image as ImageIcon, 
@@ -12,75 +10,21 @@ import {
   Save, 
   Info, 
   Layout, 
-  Crop as CropIcon,
-  Check,
-  AlertTriangle
+  X 
 } from "lucide-react";
-
-// --- Helper: Generate actual File from the cropped canvas ---
-function getCroppedImg(image: HTMLImageElement, crop: Crop, fileName: string): Promise<{file: File, url: string}> {
-  const canvas = document.createElement("canvas");
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
-  canvas.width = crop.width;
-  canvas.height = crop.height;
-  const ctx = canvas.getContext("2d");
-
-  if (!ctx) {
-    return Promise.reject(new Error("No 2d context"));
-  }
-
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    crop.width,
-    crop.height
-  );
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("Canvas is empty"));
-        return;
-      }
-      const file = new File([blob], fileName, { type: "image/jpeg" });
-      resolve({ file, url: URL.createObjectURL(blob) });
-    }, "image/jpeg", 0.95);
-  });
-}
 
 function BannerFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
-  const isEdit = Boolean(id);
 
-  // Form States
   const [displayOrder, setDisplayOrder] = useState(0);
   const [url, setUrl] = useState("");
   const [image, setImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  // Live Preview State
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // --- Interactive Cropping States ---
-  const [imgSrc, setImgSrc] = useState(""); // Raw base64 image for the cropper
-  const [isCropping, setIsCropping] = useState(false);
-  const [imageError, setImageError] = useState(""); // Validation Error
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [crop, setCrop] = useState<Crop>({
-    unit: "%", 
-    x: 0,
-    y: 0,
-    width: 100,
-    height: (100 / (1920 / 600)) // Force initial aspect ratio box
-  });
+  const isEdit = Boolean(id);
 
   // Load data if editing
   useEffect(() => {
@@ -93,6 +37,7 @@ function BannerFormContent() {
         if (banner) {
           setDisplayOrder(banner.display_order);
           setUrl(banner.url || "");
+          // Load existing image into preview (adjust URL base if needed based on your backend)
           if (banner.image) {
             setPreviewUrl(`http://localhost:8000${banner.image}`);
           }
@@ -100,57 +45,28 @@ function BannerFormContent() {
       });
   }, [id]);
 
-  // 1. User selects a file -> Validate -> Load it into the Cropper tool
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageError(""); 
-    
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      
-      // ✅ STRICT VALIDATION
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Create an image object to check dimensions
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
       
       img.onload = () => {
-        // Must be horizontal (landscape) AND at least 1920x600
-        if (img.width < 1920 || img.height < 600) {
-          setImageError(`Image is too small (${img.width}x${img.height}px). It must be at least 1920x600px.`);
-          URL.revokeObjectURL(objectUrl);
-          return; // Stop execution, don't open cropper
+        const expectedRatio = 1920 / 600;
+        const actualRatio = img.width / img.height;
+        
+        // Check if aspect ratio is roughly correct
+        if (Math.abs(expectedRatio - actualRatio) > 0.05) {
+          setMessage(`Warning: Uploaded image is ${img.width}x${img.height}. The required size is 1920x600px. It will be cropped to fit.`);
+        } else {
+          setMessage(""); // Clear error if ratio is good
         }
         
-        if (img.height >= img.width) {
-            setImageError(`Image is too tall/square. Please upload a wide horizontal banner.`);
-            URL.revokeObjectURL(objectUrl);
-            return; // Stop execution
-        }
-
-        // If it passes validation, proceed to crop mode
-        const reader = new FileReader();
-        reader.addEventListener("load", () => {
-          setImgSrc(reader.result?.toString() || "");
-          setIsCropping(true); 
-          setPreviewUrl(null); 
-        });
-        reader.readAsDataURL(file);
-        URL.revokeObjectURL(objectUrl); // Clean up memory
-      };
-      
-      img.src = objectUrl;
-    }
-  };
-
-  // 2. User clicks "Apply Crop" -> Generate cropped file and URL
-  const handleApplyCrop = async () => {
-    if (imgRef.current && crop.width && crop.height) {
-      try {
-        const { file, url } = await getCroppedImg(imgRef.current, crop, "banner-cropped.jpg");
         setImage(file);
-        setPreviewUrl(url);
-        setIsCropping(false); // Exit crop mode
-      } catch (e) {
-        console.error("Failed to crop image", e);
-      }
+        setPreviewUrl(objectUrl);
+      };
     }
   };
 
@@ -187,7 +103,7 @@ function BannerFormContent() {
   const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
 
   return (
-    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
+    <div className="max-w-2xl mx-auto pb-12 animate-in fade-in duration-500">
       
       {/* Header Area */}
       <div className="flex items-center gap-4 mb-8">
@@ -211,7 +127,7 @@ function BannerFormContent() {
 
       {message && (
         <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2 animate-pulse">
-          <Info className="w-4 h-4" /> {message}
+          <Info className="w-4 h-4 flex-shrink-0" /> {message}
         </div>
       )}
 
@@ -219,105 +135,49 @@ function BannerFormContent() {
         
         {/* Banner Media Section */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Banner Image</label>
-             {previewUrl && !isCropping && (
-               <label className="cursor-pointer text-xs font-bold text-red-600 hover:underline">
-                 Change Image
-                 <input type="file" className="sr-only" accept="image/*" onChange={handleFileSelect} />
-               </label>
-             )}
-          </div>
-
-          {/* STATE 1: Upload Box (Only show if no image is being cropped or previewed) */}
-          {!isCropping && !previewUrl && (
+          <label className={labelClass}>Banner Image</label>
+          
+          {previewUrl ? (
+            <div className="mt-1 relative w-full aspect-[1920/600] rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-100 group shadow-inner">
+              <img src={previewUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                <label className="cursor-pointer bg-white text-red-600 px-5 py-2.5 rounded-lg font-bold text-sm shadow-xl hover:bg-gray-50 transition-transform active:scale-95 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Change Image
+                  <input 
+                    type="file" 
+                    className="sr-only" 
+                    accept="image/*"
+                    onChange={handleImageChange} 
+                  />
+                </label>
+              </div>
+            </div>
+          ) : (
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors relative group">
               <div className="space-y-1 text-center">
                 <ImageIcon className="mx-auto h-12 w-12 text-gray-300 group-hover:text-red-300 transition-colors" />
                 <div className="flex text-sm text-gray-600 justify-center">
                   <label className="relative cursor-pointer rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
-                    <span>Select an image to crop</span>
+                    <span>Upload a file</span>
                     <input 
                       type="file" 
                       className="sr-only" 
                       accept="image/*"
-                      onChange={handleFileSelect}
+                      onChange={handleImageChange}
                       required={!isEdit} 
                     />
                   </label>
+                  <p className="pl-1 text-gray-500">or drag and drop</p>
                 </div>
-                <p className="text-xs text-gray-400 font-medium">Must be wide and at least 1920x600px.</p>
+                <p className="text-xs text-gray-400 font-medium">Required: 1920x600px (Max 5MB)</p>
               </div>
-            </div>
-          )}
-          
-          {/* ✅ Validation Error Message */}
-          {imageError && (
-             <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-600 text-sm font-bold rounded-lg flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <span>{imageError}</span>
-             </div>
-          )}
-
-          {/* STATE 2: Interactive Cropping Tool */}
-          {isCropping && imgSrc && (
-            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 flex flex-col items-center mt-3">
-              <div className="w-full flex justify-between items-center mb-4">
-                 <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                    <CropIcon className="w-4 h-4 text-blue-600" /> Adjust Grid
-                 </div>
-                 <button 
-                   type="button" 
-                   onClick={handleApplyCrop} 
-                   className="flex items-center gap-1 bg-blue-600 text-white px-4 py-1.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors shadow-sm"
-                 >
-                   <Check className="w-4 h-4" /> Apply Crop
-                 </button>
-              </div>
-
-              <div className="max-h-[500px] overflow-hidden rounded-lg shadow-inner bg-black/5 flex items-center justify-center">
-                <ReactCrop 
-                  crop={crop} 
-                  onChange={(c) => setCrop(c)} 
-                  aspect={1920 / 600} // Locks the grid strictly to your frontend banner ratio
-                  className="max-h-[500px]"
-                >
-                  <img 
-                    ref={imgRef} 
-                    src={imgSrc} 
-                    alt="Upload Preview" 
-                    className="max-h-[500px] w-auto object-contain"
-                  />
-                </ReactCrop>
-              </div>
-              <p className="text-xs text-gray-500 mt-3">Drag the edges of the grid to frame your banner perfectly.</p>
             </div>
           )}
         </div>
 
-        {/* STATE 3: Live Frontend Preview Block (Shows after cropping is done) */}
-        {previewUrl && !isCropping && (
-          <div className="pt-2 animate-in fade-in duration-500">
-            <label className={`${labelClass} flex items-center gap-2 mb-3`}>
-              <Layout className="w-3.5 h-3.5 text-green-600" /> Frontend Live Preview
-            </label>
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl relative">
-              
-              {/* Exact classes matching your frontend slider container */}
-              <div className="relative w-full h-[200px] md:h-[400px] rounded-[2rem] md:rounded-[3rem] overflow-hidden bg-slate-200 shadow-inner">
-                <img
-                  src={previewUrl}
-                  alt="Banner Live Preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-            </div>
-          </div>
-        )}
-
         {/* Banner Configuration Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
           <div>
             <label className={`${labelClass} flex items-center gap-2`}>
               <Hash className="w-3.5 h-3.5" /> Display Order
@@ -339,7 +199,7 @@ function BannerFormContent() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className={inputClass}
-              placeholder="e.g. /user/categories/fruits"
+              placeholder="e.g. /products/fruits"
             />
           </div>
         </div>
@@ -355,8 +215,7 @@ function BannerFormContent() {
           </button>
           <button 
             type="submit" 
-            disabled={isCropping}
-            className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98]"
           >
             <Save className="w-4 h-4" />
             {isEdit ? "Update Banner" : "Save Banner"}
@@ -364,6 +223,15 @@ function BannerFormContent() {
         </div>
       </form>
     </div>
+  );
+}
+
+// Helper icon
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
   );
 }
 

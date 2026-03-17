@@ -12,7 +12,9 @@ import {
   Scale,
   Scissors,
   CheckCircle2,
-  CreditCard
+  CreditCard,
+  PackageOpen,
+  Calendar
 } from "lucide-react";
 
 export default function OrderDetailsPage() {
@@ -21,7 +23,7 @@ export default function OrderDetailsPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ REFINED SMART PACKING LOGIC
+  // ✅ REFINED SMART PACKING LOGIC (Kept exactly the same)
   const getPackingInstruction = (quantity: number, unitStr: string) => {
     if (!unitStr) return { action: "PACK", total: `${quantity} Units`, math: "" };
 
@@ -48,7 +50,7 @@ export default function OrderDetailsPage() {
       return { action: "CUT / WEIGH", total: `${totalKg}kg`, math: `${quantity} x ${unitStr}` };
     }
 
-    // 3. Piece/Pcs logic - Removed the redundant "Size" for simple pieces
+    // 3. Piece/Pcs logic
     if (unit.includes("pc") || unit.includes("piece") || unit.includes("nos")) {
       return { action: "PICK", total: `${quantity} Pieces`, math: "" };
     }
@@ -76,75 +78,101 @@ export default function OrderDetailsPage() {
     if (id) fetchOrderDetails();
   }, [id]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-red-600" /></div>;
-  if (!order) return <div className="h-screen flex items-center justify-center font-bold text-red-500">Order not found</div>;
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+        <p className="text-sm text-gray-500 font-medium">Loading order details...</p>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="h-screen flex items-center justify-center font-bold text-red-500">
+        Order not found
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20 px-4 sm:px-0 pt-8">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20 px-4 sm:px-0 pt-8 animate-in fade-in duration-500">
       
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-6 border-gray-200">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Order #{order.order_number}</h1>
-            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
-              Placed: {new Date(order.created_at).toLocaleString()}
-            </p>
-          </div>
+      {/* --- HEADER AREA --- */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <PackageOpen className="w-6 h-6 text-red-600" />
+            Order #{order.order_number}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+            <Calendar className="w-4 h-4" />
+            Placed: {new Date(order.created_at).toLocaleString()}
+          </p>
         </div>
-        <div className={`px-4 py-2 rounded-full border-2 font-black text-xs uppercase tracking-widest bg-white shadow-sm
-          ${order.order_status === 'pending' ? 'border-yellow-400 text-yellow-600' : 'border-green-500 text-green-600'}`}>
-          {order.order_status || order.status}
+
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border
+            ${order.order_status === 'pending' 
+              ? 'bg-yellow-50 text-yellow-700 border-yellow-200' 
+              : 'bg-green-50 text-green-700 border-green-200'}`}>
+            {order.order_status || order.status}
+          </span>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition-all shadow-sm active:scale-[0.98]"
+          >
+            <ArrowLeft className="w-4 h-4 text-gray-400" />
+            Back
+          </button>
         </div>
       </div>
 
+      {/* --- CUSTOMER & PAYMENT GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Customer Details */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-2 mb-4 text-gray-900 font-bold border-b pb-3">
-            <User className="w-4 h-4 text-red-500" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 mb-4 text-gray-900 font-bold border-b border-gray-100 pb-3">
+            <User className="w-4 h-4 text-red-600" />
             <h3>Customer & Delivery</h3>
           </div>
           <div className="space-y-1">
-            <p className="text-xl font-black text-slate-800">{order.customer_name}</p>
-            <p className="text-gray-500 font-medium leading-relaxed">
+            <p className="text-lg font-bold text-gray-900">{order.customer_name}</p>
+            <p className="text-sm text-gray-600 leading-relaxed mt-1">
               {order.delivery_address_line1}<br/>
               {order.delivery_city}, {order.delivery_state} - {order.delivery_zipcode}
             </p>
-            <div className="mt-4 flex items-center gap-2 text-red-600 font-black text-sm">
+            <div className="mt-4 pt-3 border-t border-gray-50 flex items-center gap-2 text-gray-800 font-semibold text-sm">
                <span>📞 {order.customer_phone}</span>
             </div>
           </div>
         </div>
 
         {/* Payment Summary */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-2 mb-4 text-gray-900 font-bold border-b pb-3">
-            <Receipt className="w-4 h-4 text-red-500" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 mb-4 text-gray-900 font-bold border-b border-gray-100 pb-3">
+            <Receipt className="w-4 h-4 text-red-600" />
             <h3>Payment Summary</h3>
           </div>
           <div className="space-y-3">
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-400 font-bold uppercase tracking-wider">Subtotal</span>
-                <span className="font-black text-slate-700">₹{order.subtotal.toFixed(2)}</span>
+             <div className="flex justify-between text-sm text-gray-600">
+                <span className="font-medium">Subtotal</span>
+                <span className="font-bold text-gray-900">₹{order.subtotal.toFixed(2)}</span>
              </div>
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-400 font-bold uppercase tracking-wider">Delivery Fee</span>
-                <span className="font-black text-slate-700">₹{order.delivery_fee.toFixed(2)}</span>
+             <div className="flex justify-between text-sm text-gray-600">
+                <span className="font-medium">Delivery Fee</span>
+                <span className="font-bold text-gray-900">₹{order.delivery_fee.toFixed(2)}</span>
              </div>
-             <div className="flex justify-between items-center pt-3 border-t">
-                <span className="text-gray-900 font-black uppercase text-xs">Total Amount</span>
-                <span className="text-3xl font-black text-green-600">₹{order.total_amount.toFixed(2)}</span>
+             <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                <span className="text-gray-900 font-bold text-sm">Total Amount</span>
+                <span className="text-2xl font-bold text-green-600">₹{order.total_amount.toFixed(2)}</span>
              </div>
-             <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded border uppercase tracking-widest flex items-center gap-1">
-                   <CreditCard className="w-3 h-3" /> {order.payment_method}
+             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                <span className="text-[11px] font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded border border-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                   <CreditCard className="w-3.5 h-3.5" /> {order.payment_method}
                 </span>
-                <span className={`text-[10px] font-black px-2 py-1 rounded border uppercase tracking-widest
-                  ${order.payment_status === 'paid' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'}`}>
+                <span className={`text-[11px] font-bold px-2.5 py-1 rounded border uppercase tracking-wider
+                  ${order.payment_status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
                    {order.payment_status}
                 </span>
              </div>
@@ -152,13 +180,26 @@ export default function OrderDetailsPage() {
         </div>
       </div>
 
-      {/* 📦 THE PACKING LIST */}
-      <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 bg-slate-900 flex items-center justify-between">
-          <h3 className="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
-            <Package className="w-4 h-4 text-yellow-400" /> Dispatch Instructions
+      {/* --- CUTTING NOTE --- */}
+      {order.customer_note && (
+        <div className="bg-red-50 p-6 rounded-xl border border-red-200 flex gap-4">
+          <MessageSquare className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1">Customer Note / Cutting Requirement</h4>
+            <p className="text-red-700 text-sm font-medium leading-relaxed">
+              "{order.customer_note}"
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* --- 📦 THE PACKING LIST --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50/80 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-gray-900 font-bold text-sm flex items-center gap-2">
+            <Package className="w-4 h-4 text-red-600" /> Dispatch Instructions
           </h3>
-          <span className="text-white/50 text-[10px] font-bold uppercase">Ready for packing</span>
+          <span className="text-gray-500 text-xs font-medium">Ready for packing</span>
         </div>
         
         <div className="divide-y divide-gray-100">
@@ -166,43 +207,43 @@ export default function OrderDetailsPage() {
             const instr = getPackingInstruction(item.quantity, item.product?.unit || "");
             
             return (
-              <div key={item.id} className="p-8 flex flex-col lg:flex-row justify-between lg:items-center hover:bg-gray-50/50 transition-all gap-8">
+              <div key={item.id} className="p-6 flex flex-col md:flex-row justify-between md:items-center hover:bg-gray-50/50 transition-colors gap-6">
                 
                 {/* Product Name & Unit Price */}
                 <div className="flex-1">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Product</p>
-                  <p className="font-black text-gray-900 text-3xl tracking-tighter uppercase leading-none mb-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Product</p>
+                  <p className="font-bold text-gray-900 text-lg mb-2">
                     {item.product?.name || "Product"}
                   </p>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                    <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200">
                       ₹{item.price_per_unit.toFixed(2)} / {item.product?.unit || 'unit'}
                     </span>
-                    <span className="text-xs font-black text-gray-300 uppercase tracking-wide">
+                    <span className="text-xs font-semibold text-gray-500">
                       Total: ₹{(item.price_per_unit * item.quantity).toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 {/* ✅ THE CLEAR ACTION BOX */}
-                <div className="bg-yellow-400 border-b-4 border-yellow-600 px-8 py-5 rounded-2xl text-center min-w-[280px] shadow-sm">
-                  <p className="text-[10px] font-black text-yellow-900 uppercase tracking-[0.2em] mb-1 flex items-center justify-center gap-2">
-                     {instr.action === 'CUT / WEIGH' ? <Scissors className="w-3 h-3" /> : <Package className="w-3 h-3" />} 
+                <div className="bg-yellow-50 border border-yellow-200 px-6 py-4 rounded-xl text-center min-w-[220px]">
+                  <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider mb-1 flex items-center justify-center gap-1.5">
+                     {instr.action === 'CUT / WEIGH' ? <Scissors className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />} 
                      {instr.action}
                   </p>
-                  <p className="text-5xl font-black text-gray-900 leading-none">
+                  <p className="text-2xl font-bold text-gray-900">
                     {instr.total}
                   </p>
                   {instr.math && (
-                    <p className="mt-2 text-xs font-black text-yellow-800 bg-white/30 rounded py-0.5 px-2 inline-block">
-                      {instr.math}
+                    <p className="mt-1.5 text-[11px] font-semibold text-yellow-700">
+                      ({instr.math})
                     </p>
                   )}
                 </div>
 
                 {/* Checkbox */}
-                <div className="flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-xl border-4 border-gray-100 flex items-center justify-center text-transparent hover:text-green-500 hover:border-green-500 cursor-pointer transition-all bg-white">
+                <div className="flex items-center justify-center pl-2">
+                  <div className="w-10 h-10 rounded-lg border-2 border-gray-200 flex items-center justify-center text-transparent hover:text-green-500 hover:border-green-500 cursor-pointer transition-all bg-white shadow-sm">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                 </div>
@@ -212,19 +253,7 @@ export default function OrderDetailsPage() {
           })}
         </div>
       </div>
-
-      {/* Special Cutting Note */}
-      {order.customer_note && (
-        <div className="bg-red-50 p-6 rounded-2xl border-2 border-red-100 flex gap-4">
-          <MessageSquare className="w-6 h-6 text-red-600 flex-shrink-0" />
-          <div>
-            <h4 className="text-[10px] font-black text-red-900 uppercase tracking-widest mb-1 underline">Cutting Requirement:</h4>
-            <p className="text-red-700 italic text-xl font-black leading-tight">
-              "{order.customer_note}"
-            </p>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 }
