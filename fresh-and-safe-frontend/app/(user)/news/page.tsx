@@ -20,7 +20,7 @@ export default function NewsPage() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/news");
+        const res = await fetch("http://localhost:8000/api/v1/news");
         if (res.ok) {
           const data = await res.json();
           setNews(data);
