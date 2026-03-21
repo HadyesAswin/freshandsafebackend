@@ -36,7 +36,7 @@ export default function ContactPage() {
   useEffect(() => {
     const fetchContactDetails = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/contact-info");
+        const res = await fetch("http://localhost:8000/api/v1/contact");
         if (res.ok) {
           const data = await res.json();
           setDetails(data);

@@ -8,21 +8,30 @@ const Footer = () => {
   // CHANGED: We now use objects with 'name' and 'href' so we can route them properly
   const linkRows = [
     [
-      { name: 'FAQ', href: '/faq' }, // <-- This now links to your new app/faq/page.tsx
-      { name: 'Newsroom', href: '/newsroom' }, 
-      { name: 'Blog', href: '/blog' }
+      { name: 'Terms & Conditions', href: '/terms' },
+      { name: 'Privacy Policy', href: '/privacy-policy' }, 
+      
+      { name: 'Refund Policy', href: '/refund-policy' }, 
+      
+      
     ],
     [
-      { name: "Didn't find your product?", href: '/request-product' }, 
-      { name: 'Terms & Conditions', href: '/terms' }
+      {name: 'FAQ', href: '/faq' }, // <-- This now links to your new app/faq/page.tsx
+      
+      { name: 'Blog', href: '/blogs' },
+      // { name: "Didn't find your product?", href: '/request-product' }, 
+      { name: 'Newsroom', href: '/news' }, 
+       { name: 'Contact Us', href: '/contact' }
+      
     ],
     [
-      { name: 'Privacy Policy', href: '/privacy' }, 
-      { name: 'Refund Policy', href: '/refund' }, 
-      { name: 'Sellers', href: '/sellers' }
+      
+      
+      // { name: 'Sellers', href: '/sellers' }
+     
     ],
     [
-      { name: 'Contact Us', href: '/contact' }
+      
     ]
   ];
 

@@ -19,7 +19,7 @@ export default function FAQPage() {
     const fetchFaqs = async () => {
       try {
         // ✅ Points to the new user-specific backend endpoint you created
-        const res = await fetch("http://localhost:8000/api/v1/faqs");
+        const res = await fetch("http://localhost:8000/api/v1/faq");
         if (res.ok) {
           const data = await res.json();
           setFaqs(data);
