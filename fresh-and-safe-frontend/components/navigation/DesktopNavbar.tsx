@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, ShoppingBag, User, MapPin, ChevronDown, Smartphone, Loader2 } from "lucide-react";
+import { Search, ShoppingBag, User, MapPin, ChevronDown, Loader2 } from "lucide-react";
 
 // --- Interfaces ---
 interface Category {
@@ -687,9 +687,16 @@ export default function DesktopNavbar() {
             <div className="bg-white w-full max-w-[400px] p-8 rounded-[2rem] shadow-2xl relative flex flex-col items-center">
                 <button onClick={closeLoginModal} className="absolute right-6 top-6 text-slate-300 hover:text-black transition">✕</button>
                 
-                {/* Icon Wrapper */}
-                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200 mb-5">
-                  <Smartphone size={28} />
+                {/* Logo */}
+                <div className="mb-5">
+                  <Image 
+                    src="/FRESH & SAFE LOGO.png" 
+                    alt="Fresh & Safe" 
+                    width={180}
+                    height={80}
+                    style={{ width: '120px', height: 'auto' }} 
+                    className="object-contain" 
+                  />
                 </div>
                 
                 {/* --- VIEW 1: ENTER PHONE NUMBER --- */}
