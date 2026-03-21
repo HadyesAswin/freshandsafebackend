@@ -405,6 +405,7 @@ def get_order_details(order_number: str, db: Session = Depends(get_db)):
         "date": order.created_at.strftime("%B %d, %Y - %I:%M %p"),
         "status": order.order_status,
         "payment_method": order.payment_method,
+        "customer_note": order.customer_note, # ✅ ADDED THIS LINE
         "shipping_address": {
             "name": order.delivery_name,
             "phone": order.delivery_phone,
@@ -534,7 +535,7 @@ def dispatch_order_to_qwqer(order_id: int, db: Session = Depends(get_db)):
         order.qwqer_status = "Accepted"
         
         # ✅ FIX: Change this to READY_FOR_PICKUP to represent waiting for rider
-        order.order_status = OrderStatus.READY_FOR_PICKUP 
+        order.order_status = OrderStatus.PREPARING 
         
         order.qwqer_assigned_at = datetime.datetime.utcnow()
         

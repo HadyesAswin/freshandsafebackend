@@ -63,6 +63,7 @@ class OrderResponse(BaseModel):
     order_number: str
     total_amount: float
     
+    customer_note: Optional[str] = None
     # Financial fields
     subtotal: float = 0.0
     discount_amount: float = 0.0
@@ -95,6 +96,9 @@ class OrderResponse(BaseModel):
     # RAZORPAY ADDITIONS
     razorpay_order_id: Optional[str] = None  
     razorpay_key: Optional[str] = None
+
+    qwqer_order_id: Optional[str] = None
+    qwqer_status: Optional[str] = None
 
     model_config = ConfigDict(
         from_attributes=True, 

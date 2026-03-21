@@ -11,7 +11,7 @@ interface Deal {
   image?: string;
   price: number;
   compare_price?: number; 
-  weight?: string;
+  unit?: string;
   category?: any; 
   category_name?: string;
   slug?: string;
@@ -207,7 +207,7 @@ export default function DailyDeals() {
                       {item.name}
                     </h3>
                     <p className="text-xs text-slate-400 font-medium">
-                      {item.weight || '1 Pack'}
+                      {item.unit || '1 Pack'}
                     </p>
                     
                     <div className="flex items-baseline gap-2 mt-4">

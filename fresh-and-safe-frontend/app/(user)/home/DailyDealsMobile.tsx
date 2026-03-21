@@ -10,8 +10,9 @@ interface Deal {
   image?: string;
   price: number;
   compare_price?: number; 
-  weight?: string;
+  unit?: string;
   slug?: string;
+  category_name?: string;
 }
 
 export default function DailyDealsMobile() {
@@ -185,10 +186,13 @@ export default function DailyDealsMobile() {
                   </div>
                   
                   <div className="space-y-1">
+                    <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold truncate">
+                      {item.category_name || 'Offer'}
+                    </p>
                     <h3 className="font-semibold text-slate-800 text-xs line-clamp-2 h-8 leading-tight">
                       {item.name}
                     </h3>
-                    <p className="text-[10px] text-slate-400">{item.weight || '1 Pack'}</p>
+                    <p className="text-[10px] text-slate-400">{item.unit || '1 Pack'}</p>
                     <div className="flex items-baseline gap-1.5 mt-2">
                       <span className="font-bold text-emerald-600 text-sm">₹{item.price}</span>
                       {item.compare_price && (

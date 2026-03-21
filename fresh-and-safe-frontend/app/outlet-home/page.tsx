@@ -126,8 +126,13 @@ export default function ShopHomePage() {
     }
   };
 
-  const getButtonText = (status: string) => {
-    const s = status?.toLowerCase();
+  // ✅ CHANGED: Now accepts the whole 'order' object
+  const getButtonText = (order: any) => {
+    const s = (order.order_status || order.status)?.toLowerCase();
+    
+    // ✅ ADDED: If we successfully called Qwqer, it will have an ID. Force it to say Waiting!
+    if (order.qwqer_order_id && s === "preparing") return "Waiting for Rider...";
+
     switch (s) {
       case "pending": return "Accept Order";
       case "confirmed": return "Start Preparing";
@@ -209,7 +214,7 @@ export default function ShopHomePage() {
               ) : (
                 orders.map((order: any) => {
                   const currentStatus = order.order_status || order.status;
-                  const isWaitingForRider = ["ready_for_pickup", "out_for_delivery"].includes(currentStatus?.toLowerCase());
+                  const isWaitingForRider = ["ready_for_pickup", "out_for_delivery"].includes(currentStatus?.toLowerCase()) || (!!order.qwqer_order_id && currentStatus?.toLowerCase() === "preparing");
                   const badgeInfo = getStatusBadgeInfo(currentStatus);
 
                   return (
@@ -245,7 +250,7 @@ export default function ShopHomePage() {
                           >
                             {!isWaitingForRider && <CheckCircle2 className="w-3.5 h-3.5" />}
                             {isWaitingForRider && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                            {getButtonText(currentStatus)}
+                            {getButtonText(order)}
                           </button>
                           
                           <Link 

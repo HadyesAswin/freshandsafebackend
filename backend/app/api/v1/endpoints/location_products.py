@@ -128,6 +128,8 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
     for product in products:
         category_ids.add(product.category_id)
 
+        cat_name = product.category.name if product.category else "Offer"
+
         if product.daily_deal:
             daily_deals.append({
                 "id": product.id,
@@ -135,7 +137,9 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
                 "slug": product.slug,  
                 "image": product.image,
                 "price": product.price,  # Show standard MRP
-                "compare_price": product.compare_price  # ✅ ADDED THIS LINE
+                "compare_price": product.compare_price,  # ✅ ADDED THIS LINE
+                "unit": product.unit,
+                "category_name": cat_name
             })
         else:
             normal_products.append({
@@ -144,7 +148,9 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
                 "slug": product.slug,  
                 "image": product.image,
                 "price": product.price,  # Show standard MRP
-                "compare_price": product.compare_price  # ✅ ADDED THIS LINE
+                "compare_price": product.compare_price,  # ✅ ADDED THIS LINE
+                "unit": product.unit,
+                "category_name": cat_name
             })
 
     return {

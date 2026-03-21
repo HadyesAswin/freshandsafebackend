@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.core.database import get_db
 from app.models import User
+from app.schemas.user import UserUpdate
 
 # ✅ NEW IMPORTS for Password Change
 from app.core.security import verify_password, get_password_hash
@@ -55,3 +56,48 @@ def change_admin_password(
     db.refresh(current_user)
 
     return {"message": "Password updated successfully"}
+
+
+
+
+
+# --- 2. Update Endpoint ---
+@router.put("/{user_id}")
+def update_user_details(
+    user_id: int, 
+    user_data: UserUpdate, 
+    db: Session = Depends(get_db)
+):
+    """
+    Update a user's name or email. Phone number cannot be changed.
+    """
+    # Find the user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # ✅ FIX: Map the frontend "name" variable to the database "full_name" column
+    if user_data.name is not None:
+        user.full_name = user_data.name
+        
+    if user_data.email is not None:
+        # Check if email is already taken by someone else
+        existing_email = db.query(User).filter(User.email == user_data.email, User.id != user_id).first()
+        if existing_email:
+             raise HTTPException(status_code=400, detail="Email is already registered to another account")
+        user.email = user_data.email
+        
+    # Save to database permanently
+    db.commit()
+    db.refresh(user)
+    
+    # Return fresh user object, mapping "full_name" back to "name" for the frontend localStorage
+    return {
+        "id": user.id,
+        "name": user.full_name, # ✅ CRITICAL: Send it back as 'name'
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role.value if hasattr(user.role, 'value') else user.role, # Safely handle the Enum
+        "sms_subscription": getattr(user, 'sms_subscription', False),
+        "is_active": user.is_active,
+    }

@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, FolderPlus, FolderEdit, Save, Loader2, Image as ImageIcon, Hash, AlignLeft } from "lucide-react";
+import { ArrowLeft, FolderPlus, FolderEdit, Save, Loader2, Image as ImageIcon, Hash, AlignLeft, Search } from "lucide-react";
 
 function CategoryFormContent() {
   const router = useRouter();
@@ -16,6 +16,8 @@ function CategoryFormContent() {
     name: "",
     slug: "",
     description: "",
+    meta_title: "",       // ✅ ADDED THIS
+    meta_description: "", // ✅ ADDED THIS
     display_order: 0,
     status: true,
   });
@@ -30,6 +32,8 @@ function CategoryFormContent() {
             name: item.name,
             slug: item.slug,
             description: item.description || "",
+            meta_title: item.meta_title || "",             // ✅ ADDED THIS
+            meta_description: item.meta_description || "", // ✅ ADDED THIS
             display_order: item.display_order || 0,
             status: item.status,
           });
@@ -75,6 +79,8 @@ function CategoryFormContent() {
     data.append("name", formData.name);
     data.append("slug", formData.slug); // Send the auto-generated slug
     data.append("description", formData.description);
+    data.append("meta_title", formData.meta_title);             // ✅ ADDED THIS
+    data.append("meta_description", formData.meta_description); // ✅ ADDED THIS
     data.append("display_order", String(formData.display_order));
     data.append("status", String(formData.status)); // Backend expects "true"/"false" string for FormData
     
@@ -175,6 +181,37 @@ function CategoryFormContent() {
             className={`${inputClass} min-h-[120px] resize-y`} 
             placeholder="Add a brief description about the products in this category..."
           />
+        </div>
+
+        {/* Section: SEO Information */}
+        <div>
+          <div className="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-50 pb-2 pt-4">
+            <Search className="w-4 h-4 text-red-500" />
+            <h2>SEO Information (Optional)</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className={labelClass}>Meta Title</label>
+              <input
+                name="meta_title"
+                type="text"
+                value={formData.meta_title}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g. Best Fresh Fruits Online | Fresh&Safe"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelClass}>Meta Description</label>
+              <textarea
+                name="meta_description"
+                value={formData.meta_description}
+                onChange={handleChange}
+                className={`${inputClass} min-h-[80px] resize-y`}
+                placeholder="Brief summary for Google search results..."
+              />
+            </div>
+          </div>
         </div>
 
         {/* Media & Ordering */}

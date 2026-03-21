@@ -56,8 +56,15 @@ class QwqerService:
         f_phone = "".join(filter(str.isdigit, outlet.phone))[-10:] if outlet.phone else "9876543210"
         t_phone = "".join(filter(str.isdigit, order.delivery_phone))[-10:] if order.delivery_phone else "9876543210"
 
+        # ✅ DYNAMICALLY BUILD THE DESCRIPTION TO INCLUDE THE DRIVER NOTE
+        delivery_desc = f"Fresh and Safe Order {order.order_number}"
+        if getattr(order, 'customer_note', None):
+            # Append the note, cleaning up line breaks just in case
+            clean_note = order.customer_note.replace('\n', ' ')
+            delivery_desc += f" | Note: {clean_note}"
+
         payload = {
-            "description": f"Fresh and Safe Order {order.order_number}"[:100],
+            "description": delivery_desc[:200],
             "from_name": outlet.outlet_name,
             "from_phone": f"+91{f_phone}",
             "from_address": outlet.address,

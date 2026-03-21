@@ -45,13 +45,22 @@ def sync_cart(data: CartSyncSchema, db: Session = Depends(get_db)):
 
     db.query(CartItem).filter(CartItem.cart_id == cart.id).delete(synchronize_session=False)
 
+    # ✅ FIX 1: Merge duplicates before saving to the database
+    merged_items = {}
     for item in data.items:
-        product_exists = db.query(Product).filter(Product.id == item.product_id).first()
+        if item.product_id in merged_items:
+            merged_items[item.product_id] += item.quantity
+        else:
+            merged_items[item.product_id] = item.quantity
+
+    # Now loop through the cleaned, merged items and save them
+    for pid, qty in merged_items.items():
+        product_exists = db.query(Product).filter(Product.id == pid).first()
         if product_exists:
             new_item = CartItem(
                 cart_id=cart.id, 
-                product_id=item.product_id, 
-                quantity=item.quantity
+                product_id=pid, 
+                quantity=qty
             )
             db.add(new_item)
     
@@ -121,7 +130,9 @@ def get_cart(user_id: int, zipcode: Optional[str] = None, db: Session = Depends(
     else:
         print("ℹ️ No zipcode provided. Fetching global cart view.")
     
-    cart_data = []
+    # ✅ FIX 2: Deduplicate database rows before sending to frontend
+    merged_cart = {}
+    
     for item in cart.items:
         if not item.product: continue
             
@@ -134,17 +145,23 @@ def get_cart(user_id: int, zipcode: Optional[str] = None, db: Session = Depends(
 
         print(f"   -> Eval Item: [{item.product.id}] {item.product.name} | Global Active: {global_active} | Is Available Here: {is_available}")
 
-        cart_data.append({
-            "id": item.product.id,
-            "name": item.product.name,
-            "slug": item.product.slug,
-            # ✅ Removed deal check, always use standard price
-            "price": item.product.price,
-            "image": item.product.image,
-            "quantity": item.quantity,
-            "unit": item.product.unit, 
-            "is_available": is_available 
-        })
+        # If we already added this product to our dictionary, just add the quantity!
+        if item.product.id in merged_cart:
+            merged_cart[item.product.id]["quantity"] += item.quantity
+        else:
+            merged_cart[item.product.id] = {
+                "id": item.product.id,
+                "name": item.product.name,
+                "slug": item.product.slug,
+                "price": item.product.price,
+                "image": item.product.image,
+                "quantity": item.quantity,
+                "unit": item.product.unit, 
+                "is_available": is_available 
+            }
+    
+    # Convert the dictionary back into a standard list
+    cart_data = list(merged_cart.values())
     
     print(f"🛒 ===== CART PROCESSING COMPLETE =====\n")
     return cart_data
