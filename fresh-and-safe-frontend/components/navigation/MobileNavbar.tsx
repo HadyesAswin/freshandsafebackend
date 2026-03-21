@@ -12,7 +12,6 @@ import {
   UserCircle, 
   ChevronLeft,
   ArrowUpRight,
-  Smartphone,
   Loader2,
   X
 } from "lucide-react";
@@ -569,8 +568,13 @@ export default function MobileNavbar() {
         </button>
 
         <div className="flex flex-col items-center mt-2">
-            <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200 mb-5">
-                <Smartphone size={28} />
+                        <div className="mb-5">
+              <img 
+                src="/FRESH & SAFE LOGO.png" 
+                alt="Fresh & Safe" 
+                width={120}
+                className="object-contain" 
+              />
             </div>
 
             {/* --- STEP 1: PHONE --- */}
