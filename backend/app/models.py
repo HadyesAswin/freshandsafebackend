@@ -51,6 +51,9 @@ class Category(Base):
     status = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False) # ✅ ADDED FOR SOFT DELETE
 
+    meta_title = Column(String, nullable=True)
+    meta_description = Column(Text, nullable=True)
+
     # One Category -> Many Products
     products = relationship(
         "Product",

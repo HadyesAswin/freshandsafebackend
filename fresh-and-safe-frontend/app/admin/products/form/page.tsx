@@ -13,7 +13,8 @@ import {
   Layers,
   Info,
   Loader2,
-  Type
+  Type,
+  Search
 } from "lucide-react";
 
 // ---------- Helper ----------
@@ -44,6 +45,9 @@ function ProductFormContent() {
   const [comparePrice, setComparePrice] = useState<number | "">("");
   const [unit, setUnit] = useState("");
   const [description, setDescription] = useState("");
+
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   
   // ✅ MULTIPLE IMAGES STATE
   const [images, setImages] = useState<File[]>([]);
@@ -78,6 +82,8 @@ function ProductFormContent() {
           setComparePrice(product.compare_price || "");
           setUnit(product.unit || "");
           setDescription(product.description || "");
+          setMetaTitle(product.meta_title || "");
+          setMetaDescription(product.meta_description || "");
           setStatus(product.status);
           setIsAvailable(product.is_available);
           
@@ -105,6 +111,8 @@ function ProductFormContent() {
     if (comparePrice !== "") data.append("compare_price", String(comparePrice));
     data.append("unit", unit);
     data.append("description", description);
+    if (metaTitle) data.append("meta_title", metaTitle);
+    if (metaDescription) data.append("meta_description", metaDescription);
     data.append("status", String(status));
     data.append("is_available", String(isAvailable));
     
@@ -365,6 +373,37 @@ function ProductFormContent() {
                   onChange={(e) => setDescription(e.target.value)}
                   className={`${inputClass} min-h-[120px] resize-y`}
                   placeholder="Write something about this product..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: SEO Information */}
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-50 pb-2 pt-6">
+              <Search className="w-4 h-4 text-red-500" />
+              <h2>SEO Information (Optional)</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className={labelClass}>Meta Title</label>
+                <input
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. Buy Fresh Organic Bananas Online | Fresh&Safe"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 font-medium">Leave blank to use the default product name.</p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelClass}>Meta Description</label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  className={`${inputClass} min-h-[80px] resize-y`}
+                  placeholder="Brief summary for Google search results..."
                 />
               </div>
             </div>

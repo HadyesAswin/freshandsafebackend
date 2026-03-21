@@ -67,6 +67,8 @@ def create_category(
     name: str = Form(...),
     slug: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),       # ✅ ADDED THIS
+    meta_description: Optional[str] = Form(None), # ✅ ADDED THIS
     display_order: int = Form(0),
     status: bool = Form(True),
     image: Optional[UploadFile] = File(None),
@@ -84,6 +86,8 @@ def create_category(
         name=name,
         slug=slug,
         description=description,
+        meta_title=meta_title,             # ✅ ADDED THIS
+        meta_description=meta_description, # ✅ ADDED THIS
         image=image_url,
         display_order=display_order,
         status=status,
@@ -104,6 +108,8 @@ def update_category(
     name: str = Form(...),
     slug: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),       # ✅ ADDED THIS
+    meta_description: Optional[str] = Form(None), # ✅ ADDED THIS
     display_order: int = Form(0),
     status: bool = Form(True),
     image: Optional[UploadFile] = File(None),
@@ -118,6 +124,8 @@ def update_category(
     category.name = name
     category.slug = slug
     category.description = description
+    category.meta_title = meta_title             # ✅ ADDED THIS
+    category.meta_description = meta_description # ✅ ADDED THIS
     category.display_order = display_order
     category.status = status
 

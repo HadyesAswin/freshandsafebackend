@@ -103,7 +103,8 @@ def verify_otp(data: VerifyOTPRequest, db: Session = Depends(get_db)):
             "phone": user.phone,
             "name": user.full_name,
             "email": user.email,
-            "role": user.role
+            "role": user.role,
+            "sms_subscription": user.sms_subscription
         }
     }
 
@@ -156,7 +157,8 @@ def complete_profile(data: CompleteProfileRequest, db: Session = Depends(get_db)
             "phone": user.phone,
             "name": user.full_name,
             "email": user.email,
-            "role": user.role
+            "role": user.role,
+            "sms_subscription": user.sms_subscription
         }
     }
 
