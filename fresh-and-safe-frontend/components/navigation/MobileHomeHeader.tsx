@@ -1,4 +1,4 @@
-// src/components/navigation/MobileHomeHeader.tsx
+// app/(user)/components/navigation/MobileHomeHeader.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";

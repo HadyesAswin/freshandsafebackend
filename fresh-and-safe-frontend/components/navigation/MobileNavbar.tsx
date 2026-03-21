@@ -1,4 +1,4 @@
-// src/components/navigation/MobileNavbar.tsx
+// app/(user)/components/navigation/MobileNavbar.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
