@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Loader2, Scale, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface TermsDocument {
   id: number;
@@ -33,68 +32,72 @@ export default function TermsPage() {
     fetchTerms();
   }, []);
 
-  // Helper to format the "Last Updated" date
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 font-sans">
-      {/* HEADER */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-extrabold text-green-600 tracking-tight">
-            Fresh<span className="text-slate-800">&Safe</span>
-          </Link>
-          <Link href="/" className="text-sm font-bold text-gray-500 hover:text-green-600 transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-4 h-4" /> Back to Store
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#00b8d9]/20 selection:text-[#00b8d9]">
+      {/* 1. INCREASED MAX-WIDTH: Changed max-w-4xl to max-w-6xl to eat up the side margins */}
+      <div className="max-w-6xl mx-auto px-6 lg:px-12 py-10 md:py-16">
+        
+        {/* PAGE HEADER */}
+        <header className="mb-8 border-b border-gray-100 pb-6">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3 text">
+            Terms & Conditions
+          </h1>
+          <p className="text-base text-gray-500 leading-relaxed max-w-2xl">
+            Please read these terms carefully before using our services.
+          </p>
+          
+          {/* Subtle Last Updated Tag */}
+          {!loading && terms.length > 0 && terms[0]?.updated_at && (
+            <div className="mt-4 inline-flex items-center px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
+              <span className="text-xs font-medium text-gray-500">
+                Last updated on <span className="text-gray-900 font-semibold">{formatDate(terms[0].updated_at)}</span>
+              </span>
+            </div>
+          )}
+        </header>
 
-      {/* PAGE CONTENT */}
-      <div className="max-w-3xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Scale className="w-8 h-8" />
-          </div>
-          <h1 className="text-4xl font-black text-gray-900 mb-4">Terms & Conditions</h1>
-          <p className="text-gray-500 text-lg">Please read these terms carefully before using our services.</p>
-        </div>
-
+        {/* CONTENT AREA */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-            <p className="font-medium">Loading documents...</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin text-[#00b8d9]" />
+            <span className="font-medium text-sm">Loading documents...</span>
           </div>
         ) : terms.length === 0 ? (
-          <div className="bg-white p-10 rounded-2xl border text-center shadow-sm">
-            <p className="text-gray-500 font-medium">No terms and conditions are currently available.</p>
+          <div className="py-12 text-center bg-gray-50 rounded-xl border border-gray-100">
+            <p className="text-gray-500 font-medium text-sm">No terms and conditions are currently available.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-gray-100">
-            {/* Show the most recent update date based on the first item */}
-            {terms[0]?.updated_at && (
-              <p className="text-sm text-gray-400 mb-8 border-b pb-4">
-                Last Updated: <span className="font-semibold text-gray-600">{formatDate(terms[0].updated_at)}</span>
-              </p>
-            )}
-
-            <div className="space-y-12">
-              {terms.map((doc) => (
-                <div key={doc.id}>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{doc.title}</h2>
-                  <div className="prose max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap">
-                    {/* Render line breaks properly from the admin text box */}
-                    {doc.description}
+          <div className="space-y-8 md:space-y-12">
+            {terms.map((doc) => (
+              <section key={doc.id} className="group border-b border-gray-50 pb-8 last:border-0 last:pb-0">
+                {/* 2. INCREASED GAP: Added md:gap-12 and lg:gap-16 to push the left and right sides further apart */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-12 lg:gap-16">
+                  
+                  {/* Left Side: Title */}
+                  <div className="md:col-span-4 lg:col-span-3">
+                    <h2 className="text-xl font-bold tracking-tight text-gray-900 md:mt-1">
+                      {doc.title}
+                    </h2>
                   </div>
+                  
+                  {/* Right Side: Text Content */}
+                  <div className="md:col-span-8 lg:col-span-9">
+                    <div className="prose prose-sm md:prose-base prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
+                      {doc.description}
+                    </div>
+                  </div>
+
                 </div>
-              ))}
-            </div>
+              </section>
+            ))}
           </div>
         )}
       </div>
