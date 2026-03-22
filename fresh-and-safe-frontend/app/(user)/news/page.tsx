@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Newspaper, Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Newspaper } from "lucide-react";
 
 interface NewsItem {
   id: number;
@@ -34,7 +34,6 @@ export default function NewsPage() {
     fetchNews();
   }, []);
 
-  // Helper to format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -44,78 +43,81 @@ export default function NewsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 font-sans">
-      {/* HEADER */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-extrabold text-green-600 tracking-tight">
-            Fresh<span className="text-slate-800">&Safe</span>
-          </Link>
-          <Link href="/" className="text-sm font-bold text-gray-500 hover:text-green-600 transition-colors">
-            ← Back to Store
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#00b8d9]/20 selection:text-[#00b8d9]">
+      
+      {/* HEADER NAVBAR - Master Style */}
+      
 
-      {/* PAGE CONTENT */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Newspaper className="w-8 h-8" />
-          </div>
-          <h1 className="text-4xl font-black text-gray-900 mb-4">Latest News & Updates</h1>
-          <p className="text-gray-500 text-lg">Stay up to date with Fresh & Safe.</p>
-        </div>
+      {/* PAGE CONTENT CONTAINER */}
+      <div className="max-w-6xl mx-auto px-6 lg:px-12 py-10 md:py-16">
+        
+        {/* PAGE HEADER */}
+        <header className="mb-12 border-b border-gray-100 pb-8">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3 text">
+            Latest News & Updates
+          </h1>
+          <p className="text-base text-gray-500 leading-relaxed max-w-2xl">
+            Stay up to date with the latest happenings, announcements, and press releases from Fresh & Safe.
+          </p>
+        </header>
 
+        {/* CONTENT AREA */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-            <p className="font-medium">Loading latest news...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin text-[#00b8d9]" />
+            <span className="font-medium text-sm">Loading news...</span>
           </div>
         ) : news.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border text-center shadow-sm max-w-2xl mx-auto">
-            <p className="text-gray-500 font-medium text-lg">No news articles published yet. Check back soon!</p>
+          <div className="py-20 text-center bg-gray-50 rounded-xl border border-gray-100">
+            <p className="text-gray-500 font-medium text-sm">No news articles published yet. Check back soon!</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="space-y-12 md:space-y-16">
             {news.map((item) => (
-              <Link 
-                key={item.id} 
-                href={`/news/${item.slug}`}
-                className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col"
-              >
-                {/* Image */}
-                <div className="relative h-56 bg-gray-100 overflow-hidden">
-                  {item.feature_image ? (
-                    <img 
-                      src={`http://localhost:8000${item.feature_image}`} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <Newspaper className="w-12 h-12 opacity-20" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-6 flex flex-col flex-1">
-                  <span className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">
-                    {formatDate(item.published_at)}
-                  </span>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-green-600 transition-colors line-clamp-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-gray-600 mb-6 line-clamp-3 flex-1">
-                    {item.excerpt}
-                  </p>
+              <section key={item.id} className="group border-b border-gray-50 pb-12 last:border-0 last:pb-0">
+                {/* GRID LAYOUT: Meta/Image on Left | Title/Excerpt on Right */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-12 lg:gap-16">
                   
-                  <div className="flex items-center text-sm font-bold text-green-600 mt-auto">
-                    Read Full Story <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                  {/* Left Side: Thumbnail and Date */}
+                  <div className="md:col-span-4 lg:col-span-3">
+                    <div className="mb-4 rounded-2xl overflow-hidden aspect-video md:aspect-square bg-gray-50 border border-gray-100">
+                      {item.feature_image ? (
+                        <img 
+                          src={`http://localhost:8000${item.feature_image}`} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-200">
+                           <Newspaper className="w-10 h-10" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-[#00b8d9] uppercase tracking-widest">
+                      {formatDate(item.published_at)}
+                    </p>
                   </div>
+                  
+                  {/* Right Side: Title and Excerpt */}
+                  <div className="md:col-span-8 lg:col-span-9">
+                    <Link href={`/news/${item.slug}`}>
+                      <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-4 group-hover:text-[#00b8d9] transition-colors leading-tight">
+                        {item.title}
+                      </h2>
+                    </Link>
+                    <p className="text-gray-600 leading-relaxed mb-6 line-clamp-3 text-base">
+                      {item.excerpt}
+                    </p>
+                    <Link 
+                      href={`/news/${item.slug}`}
+                      className="inline-flex items-center text-sm font-bold text-[#00b8d9] hover:gap-2 transition-all"
+                    >
+                      Read Full Story <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
+                  </div>
+
                 </div>
-              </Link>
+              </section>
             ))}
           </div>
         )}

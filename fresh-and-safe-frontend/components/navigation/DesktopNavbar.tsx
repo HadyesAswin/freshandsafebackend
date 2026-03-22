@@ -22,6 +22,7 @@ export default function DesktopNavbar() {
   const [marquee, setMarquee] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [cartCount, setCartCount] = useState(0); 
+  const [contactInfo, setContactInfo] = useState<{phone?: string, email?: string} | null>(null);
 
   // ================= LOCATION STATE =================
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,6 +58,25 @@ export default function DesktopNavbar() {
   const [error, setError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+
+  // Fetch Contact Info for the top bar
+  useEffect(() => {
+    const fetchContactDetails = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/contact");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setContactInfo(data[0]); // Grab the first office
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch contact info for navbar:", err);
+      }
+    };
+    fetchContactDetails();
+  }, []);
+
 
 // --- 1. INITIAL LOAD EFFECTS ---
   useEffect(() => {
@@ -415,8 +435,14 @@ export default function DesktopNavbar() {
       {/* 1. TOP MARQUEE BAR */}
       <div className={`hidden md:flex bg-[#00b8d9] text-slate-800 text-[10px] uppercase tracking-[0.2em] py-2 px-8 justify-between items-center font-bold ${!marquee ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}>
         <div className="flex gap-6 min-w-max z-10 bg-[#00b8d9] pr-4">
-          <span>Call: 1800-SAFE-FRESH</span>
-        </div>
+  {contactInfo?.phone ? (
+    <a href={`tel:${contactInfo.phone}`} className="hover:text-white transition">
+      Call: {contactInfo.phone}
+    </a>
+  ) : (
+    <span className="opacity-70 animate-pulse">Loading...</span>
+  )}
+</div>
         
         <div className="flex-1 overflow-hidden relative mx-6 mask-linear-fade">
           <div className="flex w-max animate-marquee"> 
@@ -427,10 +453,20 @@ export default function DesktopNavbar() {
           </div>
         </div>
 
-        <div className="flex gap-6 min-w-max z-10 bg-[#00b8d9] pl-4">
-          <Link href="/partner" className="hover:text-white transition">Partner With Us</Link>
-          <Link href="/track" className="hover:text-white transition">Track Order</Link>
-        </div>
+       <div className="flex gap-6 min-w-max z-10 bg-[#00b8d9] pl-4">
+  {contactInfo ? (
+    <>
+      {/* <a href={`tel:${contactInfo.phone}`} className="hover:text-white transition flex items-center gap-1.5">
+         {contactInfo.phone}
+      </a> */}
+      <a href={`mailto:${contactInfo.email}`} className="hover:text-white transition flex items-center gap-1.5">
+        {contactInfo.email}
+      </a>
+    </>
+  ) : (
+    <span className="opacity-50 animate-pulse">Loading contact info...</span>
+  )}
+</div>
       </div>
 
       {/* 2. MAIN HEADER */}

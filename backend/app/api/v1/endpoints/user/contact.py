@@ -42,7 +42,7 @@ def submit_contact_form(data: ContactFormSubmit):
     """
     # ⚠️ Replace these with your actual credentials
     sender_email = "etournament49@gmail.com" 
-    sender_password = "ojdx cilt szko apwu" 
+    sender_password = "ajrtpzthhebpcvum" 
     receiver_email = "etournament49@gmail.com" # Where you want to receive customer messages
 
     msg = MIMEMultipart()

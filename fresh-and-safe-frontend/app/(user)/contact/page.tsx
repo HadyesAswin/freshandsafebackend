@@ -8,7 +8,6 @@ import {
   MapPin, 
   Send, 
   Loader2, 
-  MessageSquare, 
   ArrowLeft 
 } from "lucide-react";
 
@@ -23,9 +22,8 @@ interface ContactDetail {
 export default function ContactPage() {
   const [details, setDetails] = useState<ContactDetail[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // ✅ Added loading state for form
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -55,13 +53,12 @@ export default function ContactPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Updated to send data to the backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      const res = await fetch("http://localhost:8000/api/v1/contact-info/submit", {
+      const res = await fetch("http://localhost:8000/api/v1/user/contact-info/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -70,14 +67,13 @@ export default function ContactPage() {
       });
 
       if (res.ok) {
-        alert("Message sent successfully! We will get back to you soon.");
-        setFormData({ name: "", email: "", subject: "", message: "" }); // Clear form
+        alert("Message sent successfully!");
+        setFormData({ name: "", email: "", subject: "", message: "" });
       } else {
         const errorData = await res.json();
-        alert("Failed to send message: " + (errorData.detail || "Please try again later."));
+        alert("Failed to send: " + (errorData.detail || "Error"));
       }
     } catch (error) {
-      console.error("Form submission error:", error);
       alert("An error occurred while sending your message.");
     } finally {
       setIsSubmitting(false);
@@ -85,168 +81,143 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 font-sans">
-      {/* HEADER */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-extrabold text-green-600 tracking-tight">
-            Fresh<span className="text-slate-800">&Safe</span>
-          </Link>
-          <Link href="/" className="text-sm font-bold text-gray-500 hover:text-green-600 transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-4 h-4" /> Back to Store
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#00b8d9]/20 selection:text-[#00b8d9]">
+      
+      {/* HEADER NAVBAR - Synced Style */}
+      
 
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center mb-16">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Mail className="w-8 h-8" />
-          </div>
-          <h1 className="text-4xl font-black text-gray-900 mb-4">Get in Touch</h1>
-          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+      {/* PAGE CONTENT CONTAINER */}
+      <div className="max-w-6xl mx-auto px-6 lg:px-12 py-10 md:py-16">
+        
+        {/* PAGE HEADER */}
+        <header className="mb-12 border-b border-gray-100 pb-8">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3 text">
+            Get in Touch
+          </h1>
+          <p className="text-base text-gray-500 leading-relaxed max-w-2xl">
             Have a question about an order or our fresh products? Reach out to our team below.
           </p>
-        </div>
+        </header>
 
-        <div className="grid lg:grid-cols-3 gap-12">
+        {/* MASTER GRID LAYOUT */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 lg:gap-16">
           
-          {/* LEFT: Managed Contact Details */}
-          <div className="lg:col-span-1 space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Offices</h2>
-            
-            {loading ? (
-              <div className="flex items-center gap-3 text-gray-400 py-10">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Loading details...</span>
-              </div>
-            ) : details.length === 0 ? (
-              <div className="bg-white p-6 rounded-2xl border text-sm text-gray-500 italic">
-                Contact information is currently being updated.
-              </div>
-            ) : (
-              details.map((office) => (
-                <div key={office.id} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                  <h3 className="text-lg font-black text-green-700 mb-4 uppercase tracking-tight border-b pb-2">
-                    {office.title}
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Email Us</p>
-                        <a href={`mailto:${office.email}`} className="text-gray-700 font-semibold hover:text-blue-600 transition-colors">
-                          {office.email}
-                        </a>
+          {/* LEFT COLUMN: Contact Details (col-span-3) */}
+          <aside className="md:col-span-4 lg:col-span-3">
+            <div className="md:sticky md:top-32 space-y-10">
+              <h2 className="text-xl font-bold tracking-tight text-gray-900">
+                Our Offices
+              </h2>
+              
+              {loading ? (
+                <Loader2 className="w-6 h-6 animate-spin text-[#00b8d9]" />
+              ) : (
+                <div className="space-y-10">
+                  {details.map((office) => (
+                    <div key={office.id} className="space-y-4">
+                      <p className="text-xs font-bold text-[#00b8d9] uppercase tracking-widest border-l-2 border-[#00b8d9] pl-3">
+                        {office.title}
+                      </p>
+                      
+                      <div className="space-y-3 pl-3">
+                        <div className="flex items-center gap-3 group">
+                          <Mail className="w-4 h-4 text-gray-400 group-hover:text-[#00b8d9] transition-colors" />
+                          <a href={`mailto:${office.email}`} className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                            {office.email}
+                          </a>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-600">{office.phone}</span>
+                        </div>
+
+                        {office.description && (
+                          <div className="flex items-start gap-3">
+                            <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                              {office.description}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Call Us</p>
-                        <p className="text-gray-700 font-semibold">{office.phone}</p>
-                      </div>
-                    </div>
-
-                    {office.description && (
-                      <div className="flex items-start gap-4">
-                        <div className="p-2 bg-green-50 text-green-600 rounded-lg">
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">Find Us</p>
-                          <p className="text-gray-600 text-sm leading-relaxed">{office.description}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
-
-          {/* RIGHT: Contact Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-8">
-                <MessageSquare className="w-6 h-6 text-green-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Send us a Message</h2>
-              </div>
-
-              <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">Full Name</label>
-                  <input 
-                    type="text" 
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter your name" 
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">Email Address</label>
-                  <input 
-                    type="email" 
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter your email" 
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                  />
-                </div>
-
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">Subject</label>
-                  <input 
-                    type="text" 
-                    name="subject"
-                    required
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    placeholder="What is this regarding?" 
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                  />
-                </div>
-
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">Message</label>
-                  <textarea 
-                    rows={5}
-                    name="message"
-                    required
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    placeholder="Type your message here..." 
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all resize-none"
-                  ></textarea>
-                </div>
-
-                <div className="md:col-span-2 pt-4">
-                  <button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="w-full md:w-fit px-12 py-4 bg-green-600 text-white font-black rounded-xl hover:bg-green-700 shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70"
-                  >
-                    {isSubmitting ? (
-                      <>Sending... <Loader2 className="w-4 h-4 animate-spin" /></>
-                    ) : (
-                      <>Send Message <Send className="w-4 h-4" /></>
-                    )}
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
+          </aside>
+
+          {/* RIGHT COLUMN: Contact Form (col-span-9) */}
+          <div className="md:col-span-8 lg:col-span-9">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-400 uppercase">Full Name</label>
+                <input 
+                  type="text" 
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Enter your name" 
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-[#00b8d9] focus:border-[#00b8d9] transition-all"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-400 uppercase">Email Address</label>
+                <input 
+                  type="email" 
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Enter your email" 
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-[#00b8d9] focus:border-[#00b8d9] transition-all"
+                />
+              </div>
+
+              <div className="sm:col-span-2 flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-400 uppercase">Subject</label>
+                <input 
+                  type="text" 
+                  name="subject"
+                  required
+                  value={formData.subject}
+                  onChange={handleInputChange}
+                  placeholder="What is this regarding?" 
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-[#00b8d9] focus:border-[#00b8d9] transition-all"
+                />
+              </div>
+
+              <div className="sm:col-span-2 flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-400 uppercase">Message</label>
+                <textarea 
+                  rows={6}
+                  name="message"
+                  required
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  placeholder="Type your message here..." 
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-[#00b8d9] focus:border-[#00b8d9] transition-all resize-none"
+                ></textarea>
+              </div>
+
+              <div className="sm:col-span-2 pt-4">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full sm:w-fit px-12 py-4 bg-[#00b8d9] text-white font-bold rounded-xl hover:bg-[#009ab5] transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70 shadow-lg shadow-[#00b8d9]/20"
+                >
+                  {isSubmitting ? (
+                    <>Sending... <Loader2 className="w-4 h-4 animate-spin" /></>
+                  ) : (
+                    <>Send Message <Send className="w-4 h-4" /></>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
 
         </div>
