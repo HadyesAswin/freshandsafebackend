@@ -563,11 +563,16 @@ def get_qwqer_tracking(order_id: int, db: Session = Depends(get_db)):
         
         order.qwqer_status = raw_status
         
-        if safe_status == "DELIVERED":
+        # ✅ ADDED: Tell the database how to handle "PICKED UP" and "ACCEPTED"
+        if safe_status == "ACCEPTED":
+            order.order_status = OrderStatus.PREPARING
+        elif safe_status == "PICKED UP":
+            order.order_status = OrderStatus.OUT_FOR_DELIVERY
+        elif safe_status == "DELIVERED":
             order.order_status = OrderStatus.DELIVERED
             if not order.delivered_at:
                 order.delivered_at = datetime.datetime.utcnow()
-        elif safe_status in ["CANCELLED", "RETURNED", "UNDELIVERED"]:
+        elif safe_status in ["CANCELLED", "CANCELED", "RETURNED", "UNDELIVERED", "RETURNED TO WAREHOUSE", "RETURNED TO SENDER", "RETURNED TO ANOTHER ADDRESS"]:
             order.order_status = OrderStatus.CANCELLED
         
         db.commit()
