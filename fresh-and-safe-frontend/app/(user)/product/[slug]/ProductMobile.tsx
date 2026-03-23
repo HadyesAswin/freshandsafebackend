@@ -59,6 +59,26 @@ export default function ProductMobile() {
     return `${quantity * unitValue} ${unitStr}`;
   };
 
+  // ✅ NEW: Helper to calculate mathematical weight in KG
+  const getWeightInKg = (unitStr: string | undefined, qty: number) => {
+    if (!unitStr) return 0.5 * qty; // Default to 500g if no unit is set
+    
+    const unit = unitStr.toLowerCase();
+    const match = unit.match(/(\d+(\.\d+)?)/);
+    const unitValue = match ? parseFloat(match[0]) : 1;
+
+    if (unit.includes("kg")) return unitValue * qty;
+    if (unit.includes("g") && !unit.includes("k")) return (unitValue / 1000) * qty;
+    
+    // For "pc", "packet", "piece" -> Assume 500g (0.5kg)
+    return 0.5 * qty; 
+  };
+
+  // ✅ NEW: Calculate the total weight of the ENTIRE cart
+  const getCurrentCartWeight = (currentCart: CartItem[]) => {
+    return currentCart.reduce((total, item) => total + getWeightInKg(item.unit, item.quantity), 0);
+  };
+
   const triggerPopup = (message: string) => {
     setPopupMessage(message);
     setShowPopup(true);
@@ -137,10 +157,32 @@ export default function ProductMobile() {
     if (!product) return;
     const existingCart = localStorage.getItem("cart");
     let currentCart: CartItem[] = existingCart ? JSON.parse(existingCart) : [];
+    
+    // ✅ GATEKEEPER: Check 5kg limit before adding!
+    const currentTotalWeight = getCurrentCartWeight(currentCart);
+    const weightToAdd = getWeightInKg(product.unit, qty);
+
+    if (currentTotalWeight + weightToAdd > 5.0) {
+      triggerPopup(`Limit Exceeded! Cart has ${currentTotalWeight.toFixed(1)}kg. Max is 5kg.`);
+      return; // 🛑 Block the addition!
+    }
+
+    // Normal Add to Cart logic resumes below
     const existingProductIndex = currentCart.findIndex((item) => item.id === product.id);
 
-    if (existingProductIndex > -1) currentCart[existingProductIndex].quantity += qty;
-    else currentCart.push({ id: product.id, name: product.name, slug: product.slug, price: product.price, image: product.image, quantity: qty, unit: product.unit });
+    if (existingProductIndex > -1) {
+      currentCart[existingProductIndex].quantity += qty;
+    } else {
+      currentCart.push({ 
+        id: product.id, 
+        name: product.name, 
+        slug: product.slug, 
+        price: product.price, 
+        image: product.image, 
+        quantity: qty, 
+        unit: product.unit 
+      });
+    }
 
     localStorage.setItem("cart", JSON.stringify(currentCart));
 
@@ -149,11 +191,15 @@ export default function ProductMobile() {
       const user = JSON.parse(storedUser);
       try {
         await fetch("http://localhost:8000/api/v1/cart/sync", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: user.id, items: currentCart.map((i) => ({ product_id: i.id, quantity: i.quantity })) }),
         });
-      } catch (error) { console.error("Cart sync failed:", error); }
+      } catch (error) { 
+        console.error("Cart sync failed:", error); 
+      }
     }
+    
     setQty(1);
     triggerPopup("Added to cart");
   };

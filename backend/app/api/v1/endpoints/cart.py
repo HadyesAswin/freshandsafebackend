@@ -113,8 +113,15 @@ def get_cart(user_id: int, zipcode: Optional[str] = None, db: Session = Depends(
         if u_lat and u_lng:
             print(f"🏪 Searching for nearby outlets within 15km of Lat: {u_lat}, Lng: {u_lng}...")
             nearby_outlets = get_nearby_outlets(db, u_lat, u_lng)
-            outlet_ids = [o.id for o in nearby_outlets if o.status == True and o.is_deleted == False]
-            print(f"🎯 Active Nearby Outlet IDs found: {outlet_ids}")
+            active_outlets = [o for o in nearby_outlets if o.status == True and o.is_deleted == False]
+            
+            # ✅ FIX: Stop Inventory Pooling! Lock to the SINGLE closest outlet.
+            if active_outlets:
+                primary_outlet = active_outlets[0]
+                outlet_ids = [primary_outlet.id]
+                print(f"🎯 Locked to Primary Outlet: {primary_outlet.id} to prevent mixed-cart conflicts.")
+            else:
+                outlet_ids = []
 
             if outlet_ids:
                 shop_prods = db.query(ShopProduct.product_id).filter(
@@ -204,8 +211,15 @@ def validate_guest_cart(data: GuestCartRequest, db: Session = Depends(get_db)):
         if u_lat and u_lng:
             print(f"🏪 Searching for nearby outlets within 15km of Lat: {u_lat}, Lng: {u_lng}...")
             nearby_outlets = get_nearby_outlets(db, u_lat, u_lng)
-            outlet_ids = [o.id for o in nearby_outlets if o.status == True and o.is_deleted == False]
-            print(f"🎯 Active Nearby Outlet IDs found: {outlet_ids}")
+            active_outlets = [o for o in nearby_outlets if o.status == True and o.is_deleted == False]
+            
+            # ✅ FIX: Stop Inventory Pooling! Lock to the SINGLE closest outlet.
+            if active_outlets:
+                primary_outlet = active_outlets[0]
+                outlet_ids = [primary_outlet.id]
+                print(f"🎯 Locked to Primary Outlet: {primary_outlet.id} to prevent mixed-cart conflicts.")
+            else:
+                outlet_ids = []
 
             if outlet_ids:
                 shop_prods = db.query(ShopProduct.product_id).filter(

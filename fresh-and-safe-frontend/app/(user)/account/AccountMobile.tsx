@@ -82,6 +82,11 @@ export default function AccountMobile() {
   const [sessionZip, setSessionZip] = useState("");
   const [editingAddress, setEditingAddress] = useState<any>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
+  const [mapSearchLoading, setMapSearchLoading] = useState(false);
+  const [mapSearchResults, setMapSearchResults] = useState<any[]>([]);
+  
   const [newAddress, setNewAddress] = useState({
     name: "",
     phone: "",
@@ -266,6 +271,7 @@ export default function AccountMobile() {
   };
 
   // ================= ADDRESS LOGIC =================
+  // ================= ADDRESS LOGIC =================
   const verifyLocationPin = async (
     lat: number,
     lng: number,
@@ -274,55 +280,43 @@ export default function AccountMobile() {
     setIsLocating(true);
     setLocationError("");
     setPinVerified(null);
+    
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
       const data = await res.json();
-      if (data && data.address && data.address.postcode) {
-        const mappedZip = data.address.postcode;
-        if (mappedZip !== sessionZip) {
-          if (mappedZip.substring(0, 4) === sessionZip.substring(0, 4)) {
-            setPinVerified(true);
-          } else {
-            setPinVerified(false);
-            setLocationError(
-              `Pin (${mappedZip}) is too far from your store area (${sessionZip}).`
-            );
-            return;
-          }
-        } else {
-          setPinVerified(true);
-        }
+      
+      // ✅ FIX: Completely removed strict Zipcode blocking!
+      // We now trust the Lat/Lng and let the backend handle the 15km radius limit during checkout.
+      setPinVerified(true);
+      setLocationError("");
+
+      if (data && data.address) {
         if (!isEdit) {
           setNewAddress((prev) => ({
             ...prev,
-            city:
-              data.address.city ||
-              data.address.town ||
-              data.address.county ||
-              "",
+            city: data.address.city || data.address.town || data.address.county || "",
             state: data.address.state || "Kerala",
+            zipcode: data.address.postcode || sessionZip, // Auto-fill their real mapped zip
             latitude: lat,
             longitude: lng,
           }));
         } else {
           setEditingAddress((prev: any) => ({
             ...prev,
+            city: data.address.city || data.address.town || data.address.county || prev.city,
+            state: data.address.state || prev.state,
+            zipcode: data.address.postcode || prev.zipcode,
             latitude: lat,
             longitude: lng,
           }));
         }
       } else {
-        setPinVerified(true);
         if (!isEdit)
           setNewAddress((prev) => ({ ...prev, latitude: lat, longitude: lng }));
         else
-          setEditingAddress((prev: any) => ({
-            ...prev,
-            latitude: lat,
-            longitude: lng,
-          }));
+          setEditingAddress((prev: any) => ({ ...prev, latitude: lat, longitude: lng }));
       }
     } catch {
       setPinVerified(true);
@@ -356,6 +350,50 @@ export default function AccountMobile() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  // ✅ NEW: Search Map via Text
+  // ✅ NEW: Search Map via Text
+  // ✅ NEW: Search Map via Text
+  const handleSearchLocation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!mapSearchQuery.trim()) return;
+
+    setMapSearchLoading(true);
+    setLocationError("");
+    try {
+      // ✅ FIX: Match the Admin API exactly! Append ", Kerala" and use countrycodes=in
+      const enhancedQuery = encodeURIComponent(`${mapSearchQuery.trim()}, Kerala`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${enhancedQuery}&countrycodes=in&format=json&addressdetails=1&limit=5`;
+      
+      const res = await fetch(url, {
+        headers: { "Accept-Language": "en-US,en" }
+      });
+      
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setMapSearchResults(data);
+      } else {
+        setMapSearchResults([]);
+        setLocationError("Location not found. Try a different search term or use the map pin.");
+      }
+    } catch (err) {
+      console.error("Search failed", err);
+      setLocationError("Network error while searching map.");
+    } finally {
+      setMapSearchLoading(false);
+    }
+  };
+
+  // ✅ NEW: Select a search result and update the map
+  const handleSelectSearchResult = (lat: string, lon: string, displayName: string, isEdit: boolean) => {
+    const numLat = parseFloat(lat);
+    const numLng = parseFloat(lon);
+    
+    setMapSearchQuery(displayName);
+    setMapSearchResults([]);
+    
+    verifyLocationPin(numLat, numLng, isEdit);
   };
 
   const handleCreateAddress = async (e: React.FormEvent) => {
@@ -498,13 +536,8 @@ export default function AccountMobile() {
   );
 
   // ================= ADDRESS FORM SHEET =================
-  const AddressFormSheet = ({
-    isEdit,
-    onClose,
-  }: {
-    isEdit: boolean;
-    onClose: () => void;
-  }) => {
+  // ✅ FIX: Changed from a Component to a normal render function to prevent unmounting
+  const renderAddressFormSheet = (isEdit: boolean, onClose: () => void) => {
     const currentAddress = isEdit ? editingAddress : newAddress;
     const setField = (field: string, value: any) => {
       if (isEdit) {
@@ -535,10 +568,54 @@ export default function AccountMobile() {
 
           <div className="px-4 py-6 pb-32">
             {/* Step 1 */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 overflow-visible">
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">
-                Step 1 · Set Location
+                Step 1 · Find on Map
               </p>
+
+              {/* ✅ THE NEW SEARCH BAR */}
+              <div className="mb-4 relative">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search area, street..."
+                    value={mapSearchQuery}
+                    onChange={(e) => setMapSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation()}
+                    className="flex-1 border border-slate-200 p-3 rounded-xl outline-none bg-white focus:ring-2 focus:ring-[#00b8d9]/20 focus:border-[#00b8d9] transition-all text-sm font-semibold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearchLocation}
+                    disabled={mapSearchLoading || !mapSearchQuery}
+                    className="bg-slate-900 text-white px-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all text-sm flex items-center justify-center min-w-[80px]"
+                  >
+                    {mapSearchLoading ? <Loader2 size={16} className="animate-spin" /> : "Search"}
+                  </button>
+                </div>
+
+                {/* Search Results Dropdown */}
+                {mapSearchResults.length > 0 && (
+                  <ul className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {mapSearchResults.map((res: any, idx: number) => (
+                      <li
+                        key={idx}
+                        onClick={() => handleSelectSearchResult(res.lat, res.lon, res.display_name, isEdit)}
+                        className="p-3 border-b border-slate-100 last:border-0 hover:bg-cyan-50 cursor-pointer text-[11px] leading-snug text-slate-700 font-medium transition-colors"
+                      >
+                        {res.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mb-4 gap-4">
+                <div className="h-px bg-slate-200 flex-1"></div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">OR</span>
+                <div className="h-px bg-slate-200 flex-1"></div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => handleGetExactLocation(isEdit)}
@@ -1047,6 +1124,8 @@ export default function AccountMobile() {
                 setShowAddForm(true);
                 setPinVerified(null);
                 setLocationError("");
+                setMapSearchQuery(""); // ✅ Clear Search
+                setMapSearchResults([]); // ✅ Clear Results
               }}
               className="w-10 h-10 bg-[#00b8d9] rounded-xl flex items-center justify-center text-white active:scale-90 transition-transform"
             >
@@ -1116,6 +1195,8 @@ export default function AccountMobile() {
                           setEditingAddress(addr);
                           setPinVerified(true);
                           setLocationError("");
+                          setMapSearchQuery(""); // ✅ Clear Search
+                          setMapSearchResults([]); // ✅ Clear Results
                         }}
                         className="flex-1 py-2.5 bg-slate-50 text-[#00b8d9] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform border border-slate-100"
                       >
@@ -1372,26 +1453,18 @@ export default function AccountMobile() {
       )}
 
       {/* ================= ADDRESS FORM SHEETS ================= */}
-      {showAddForm && (
-        <AddressFormSheet
-          isEdit={false}
-          onClose={() => {
-            setShowAddForm(false);
-            setPinVerified(null);
-            setLocationError("");
-          }}
-        />
-      )}
-      {editingAddress && (
-        <AddressFormSheet
-          isEdit={true}
-          onClose={() => {
-            setEditingAddress(null);
-            setPinVerified(null);
-            setLocationError("");
-          }}
-        />
-      )}
+      {showAddForm && renderAddressFormSheet(false, () => {
+          setShowAddForm(false);
+          setPinVerified(null);
+          setLocationError("");
+        })
+      }
+      {editingAddress && renderAddressFormSheet(true, () => {
+          setEditingAddress(null);
+          setPinVerified(null);
+          setLocationError("");
+        })
+      }
 
       {/* ================= LOGOUT CONFIRMATION ================= */}
       {showLogoutConfirm && (

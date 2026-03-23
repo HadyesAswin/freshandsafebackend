@@ -74,6 +74,15 @@ export default function DailyDeals() {
     e.preventDefault();
     e.stopPropagation();
 
+    // ✅ GATEKEEPER: Check if the user is logged in FIRST!
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      setPopupMessage("Please login to manage wishlist");
+      setShowPopup(true);
+      setTimeout(() => setShowPopup(false), 2000);
+      return; // 🛑 Block the action for guests!
+    }
+
     const isLoved = wishlist.some(item => item.id === product.id);
     let updatedWishlist: Deal[];
 
@@ -91,21 +100,18 @@ export default function DailyDeals() {
     setTimeout(() => setShowPopup(false), 2000);
 
     // ✅ Sync with backend for logged-in users
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      try {
-        await fetch("http://localhost:8000/api/v1/wishlist/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: parsedUser.id,
-            product_ids: updatedWishlist.map(item => item.id),
-          }),
-        });
-      } catch (error) {
-        console.error("Wishlist sync failed", error);
-      }
+    const parsedUser = JSON.parse(storedUser);
+    try {
+      await fetch("http://localhost:8000/api/v1/wishlist/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: parsedUser.id,
+          product_ids: updatedWishlist.map(item => item.id),
+        }),
+      });
+    } catch (error) {
+      console.error("Wishlist sync failed", error);
     }
   };
 

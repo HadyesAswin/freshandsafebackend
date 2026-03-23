@@ -6,6 +6,20 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Scale, AlertCircle, ShoppingBag, Loader2, MapPin, X } from 'lucide-react';
 
+
+// ✅ FRONTEND DISTANCE CALCULATOR
+// const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+//   if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
+//   const R = 6371; // Earth radius in km
+//   const dLat = (lat2 - lat1) * (Math.PI / 180);
+//   const dLon = (lon2 - lon1) * (Math.PI / 180);
+//   const a = 
+//     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+//     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+//   return R * c;
+// };
+
 const MapPicker = dynamic(() => import("../../../components/MapPicker"), { ssr: false });
 
 export interface Address {
@@ -75,6 +89,10 @@ const CartDesktop: React.FC = () => {
   const [locationError, setLocationError] = useState("");
   const [pinVerified, setPinVerified] = useState<boolean | null>(null);
 
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
+  const [mapSearchLoading, setMapSearchLoading] = useState(false);
+  const [mapSearchResults, setMapSearchResults] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -92,6 +110,7 @@ const CartDesktop: React.FC = () => {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [showWeightLimitPopup, setShowWeightLimitPopup] = useState(false);
 
   const calculateTotalWeight = (qty: number, unitStr: string | undefined) => {
     if (!unitStr) return "";
@@ -105,6 +124,27 @@ const CartDesktop: React.FC = () => {
     if (unit.includes("kg")) return `${(qty * unitValue).toFixed(1)}kg`;
     if (unit.includes("pc") || unit.includes("piece")) return `${qty * unitValue} Pieces`;
     return `${qty * unitValue} ${unitStr}`;
+  };
+
+
+  // ✅ NEW: Helper to calculate mathematical weight in KG
+  const getWeightInKg = (unitStr: string | undefined, qty: number) => {
+    if (!unitStr) return 0.5 * qty; // Default to 500g if no unit is set
+    
+    const unit = unitStr.toLowerCase();
+    const match = unit.match(/(\d+(\.\d+)?)/);
+    const unitValue = match ? parseFloat(match[0]) : 1;
+
+    if (unit.includes("kg")) return unitValue * qty;
+    if (unit.includes("g") && !unit.includes("k")) return (unitValue / 1000) * qty;
+    
+    // For "pc", "packet", "piece" -> Assume 500g (0.5kg)
+    return 0.5 * qty; 
+  };
+
+  // ✅ NEW: Calculate the total weight of the ENTIRE cart
+  const getCurrentCartWeight = (currentCart: CartItem[]) => {
+    return currentCart.reduce((total, item) => total + getWeightInKg(item.unit, item.quantity), 0);
   };
 
   // ✅ Address selection — state only, NO localStorage write here
@@ -132,6 +172,8 @@ const CartDesktop: React.FC = () => {
     setUseNewAddress(true);
     setPinVerified(null);
     setLocationError("");
+    setMapSearchQuery(""); // ✅ Clear Search
+    setMapSearchResults([]);
     setFormData((prev) => ({
       ...prev,
       firstName: user?.name || "",
@@ -302,6 +344,22 @@ const CartDesktop: React.FC = () => {
   };
 
   const increaseQuantity = (id: number) => {
+    const itemToIncrease = cart.find((i) => i.id === id);
+    if (!itemToIncrease) return;
+
+    // 1. Calculate how much weight ONE MORE of this item adds
+    const additionalWeight = getWeightInKg(itemToIncrease.unit, 1);
+    
+    // 2. Get current total cart weight
+    const currentTotalWeight = getCurrentCartWeight(cart);
+
+    // 3. Check if adding this pushes us over 5kg
+    if (currentTotalWeight + additionalWeight > 5.0) {
+      setShowWeightLimitPopup(true);
+      return; // 🛑 Block the increase!
+    }
+
+    // 4. If safe, increase quantity as normal
     updateCartStorage(
       cart.map((item) =>
         item.id === id ? { ...item, quantity: item.quantity + 1 } : item
@@ -341,39 +399,38 @@ const CartDesktop: React.FC = () => {
     setIsLocating(true);
     setLocationError("");
     setPinVerified(null);
+
+    // 🛑 NEW: INSTANT FRONTEND DISTANCE CHECK
+    // const distanceToShop = calculateDistance(SHOP_LAT, SHOP_LNG, lat, lng);
+    
+    // if (distanceToShop > MAX_DELIVERY_RADIUS_KM) {
+    //   setPinVerified(false);
+    //   setLocationError(`Location is too far! You are ${distanceToShop.toFixed(1)}km away. We only deliver within 15km of our outlet.`);
+    //   setIsLocating(false);
+    //   // We still update the map's coordinates so the user can see their pin, but the form will be locked.
+    //   setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+    //   return; 
+    // }
+
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
       const data = await res.json();
-      if (data && data.address && data.address.postcode) {
-        const mappedZip = data.address.postcode;
-        if (mappedZip !== sessionZip) {
-          if (mappedZip.substring(0, 4) === sessionZip.substring(0, 4)) {
-            setPinVerified(true);
-          } else {
-            setPinVerified(false);
-            setLocationError(
-              `Pin (${mappedZip}) is too far from your selected store area (${sessionZip}).`
-            );
-            return;
-          }
-        } else {
-          setPinVerified(true);
-        }
+      
+      setPinVerified(true);
+      setLocationError("");
+
+      if (data && data.address) {
         setFormData((prev) => ({
           ...prev,
-          city:
-            data.address.city ||
-            data.address.town ||
-            data.address.county ||
-            prev.city,
+          city: data.address.city || data.address.town || data.address.county || prev.city,
           state: data.address.state || prev.state,
+          zipcode: data.address.postcode || sessionZip,
           latitude: lat,
           longitude: lng,
         }));
       } else {
-        setPinVerified(true);
         setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
       }
     } catch (err) {
@@ -403,6 +460,45 @@ const CartDesktop: React.FC = () => {
     );
   };
 
+  // ✅ NEW: Search Map via Text
+  const handleSearchLocation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!mapSearchQuery.trim()) return;
+
+    setMapSearchLoading(true);
+    setLocationError("");
+    try {
+      const enhancedQuery = encodeURIComponent(`${mapSearchQuery.trim()}, Kerala`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${enhancedQuery}&countrycodes=in&format=json&addressdetails=1&limit=5`;
+      
+      const res = await fetch(url, { headers: { "Accept-Language": "en-US,en" } });
+      const data = await res.json();
+      
+      if (data && data.length > 0) {
+        setMapSearchResults(data);
+      } else {
+        setMapSearchResults([]);
+        setLocationError("Location not found. Try a different search term or use the map pin.");
+      }
+    } catch (err) {
+      console.error("Search failed", err);
+      setLocationError("Network error while searching map.");
+    } finally {
+      setMapSearchLoading(false);
+    }
+  };
+
+  // ✅ NEW: Select a search result and update the map
+  const handleSelectSearchResult = (lat: string, lon: string, displayName: string) => {
+    const numLat = parseFloat(lat);
+    const numLng = parseFloat(lon);
+    
+    setMapSearchQuery(displayName);
+    setMapSearchResults([]);
+    
+    verifyLocationPin(numLat, numLng);
+  };
+
   // ✅ Save new address — state only, localStorage written only at checkout
   const saveNewAddressAndUse = () => {
     setSelectedAddress({
@@ -423,15 +519,15 @@ const CartDesktop: React.FC = () => {
   };
 
   // Delivery Fee Calculation
+  // Delivery Fee Calculation
   useEffect(() => {
     if (!selectedAddress || availableItems.length === 0) {
       setDeliveryFee(null);
       return;
     }
-    if (subtotal > 500) {
-      setDeliveryFee(0);
-      return;
-    }
+    
+    // ✅ DELETED the subtotal > 500 block so it ALWAYS calculates a fee!
+
     const calculateFee = async () => {
       setIsCalculatingFee(true);
       let totalWeightInKg = 0;
@@ -474,12 +570,26 @@ const CartDesktop: React.FC = () => {
         );
         if (res.ok) {
           const data = await res.json();
+          
+          // ✅ FRONTEND DISTANCE CHECK (Double Security)
+          if (data.distance && parseFloat(data.distance) > 15.0) {
+              setDeliveryFee(null);
+              setSelectedAddress(null); // Unselect address to lock checkout
+              alert(`Delivery unavailable! This address is ${parseFloat(data.distance).toFixed(1)}km away. Our maximum delivery radius is 15km.`);
+              return;
+          }
+          
           setDeliveryFee(data.delivery_fee);
         } else {
-          setDeliveryFee(null);
+          // ✅ CATCH BACKEND 400 ERRORS (Over 15km or Distance 0)
+          const errData = await res.json();
+          setDeliveryFee(null); 
+          setSelectedAddress(null); // Unselect address to lock checkout
+          alert(errData.detail || "Delivery is unavailable for this location.");
         }
       } catch (error) {
         setDeliveryFee(null);
+        setSelectedAddress(null);
       } finally {
         setIsCalculatingFee(false);
       }
@@ -532,6 +642,12 @@ const CartDesktop: React.FC = () => {
 
   // ✅ Only write address & fee to localStorage HERE — when user clicks checkout
   const handleCheckoutClick = () => {
+    // ✅ NEW: Final Gatekeeper Check!
+    const totalCartWeight = getCurrentCartWeight(cart);
+    if (totalCartWeight > 5.0) {
+      setShowWeightLimitPopup(true);
+      return;
+    }
     if (!selectedAddress) {
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
@@ -543,11 +659,18 @@ const CartDesktop: React.FC = () => {
       );
       return;
     }
-    if (deliveryFee === null && subtotal <= 500) {
-      alert(
-        "Delivery fee is still calculating or failed. Please check your address."
-      );
+    
+    // ✅ REMOVED the "&& subtotal <= 500". Now it ALWAYS requires a delivery fee.
+    // ✅ Require a VALID delivery fee (not just non-null)
+    if (deliveryFee === null || deliveryFee === undefined) {
+      alert("Delivery fee is still calculating or failed. Please check your address.");
       return;
+    }
+    
+    // ✅ Double-check address has coordinates
+    if (!selectedAddress?.latitude || !selectedAddress?.longitude) {
+        alert("Address is missing GPS coordinates. Please re-select your address on the map.");
+        return;
     }
 
     // ✅ Write to localStorage ONLY at checkout time
@@ -631,10 +754,10 @@ const CartDesktop: React.FC = () => {
             {user && savedAddresses.length > 0 && !useNewAddress && (
               <div className="space-y-4 mb-6">
                 {savedAddresses.map((addr) => {
+                  // ✅ FIX 1: Wrap in String() to prevent silent Javascript crashes!
                   const isOutOfZone =
-                    addr.zipcode &&
-                    addr.zipcode.substring(0, 4) !==
-                      sessionZip.substring(0, 4);
+                    addr.zipcode && sessionZip &&
+                    String(addr.zipcode).substring(0, 3) !== String(sessionZip).substring(0, 3);
                   const isSelected = selectedAddress?.id === addr.id;
                   return (
                     <div
@@ -698,10 +821,55 @@ const CartDesktop: React.FC = () => {
                   </button>
                 )}
 
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                {/* Map Step */}
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 overflow-visible">
                   <p className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
-                    Step 1: Locate on Map
+                    Step 1: Find on Map
                   </p>
+
+                  {/* ✅ THE NEW SEARCH BAR */}
+                  <div className="mb-4 relative">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search area, street..."
+                        value={mapSearchQuery}
+                        onChange={(e) => setMapSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation()}
+                        className="flex-1 border border-slate-200 p-3.5 rounded-xl outline-none bg-white focus:ring-2 focus:ring-[#00b8d9]/20 focus:border-[#00b8d9] transition-all text-sm font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchLocation}
+                        disabled={mapSearchLoading || !mapSearchQuery}
+                        className="bg-slate-900 text-white px-6 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all text-sm flex items-center justify-center min-w-[100px]"
+                      >
+                        {mapSearchLoading ? <Loader2 size={16} className="animate-spin" /> : "Search"}
+                      </button>
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {mapSearchResults.length > 0 && (
+                      <ul className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                        {mapSearchResults.map((res: any, idx: number) => (
+                          <li
+                            key={idx}
+                            onClick={() => handleSelectSearchResult(res.lat, res.lon, res.display_name)}
+                            className="p-3 border-b border-slate-100 last:border-0 hover:bg-cyan-50 cursor-pointer text-xs text-slate-700 font-medium transition-colors"
+                          >
+                            {res.display_name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mb-4 gap-4">
+                    <div className="h-px bg-slate-200 flex-1"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">OR</span>
+                    <div className="h-px bg-slate-200 flex-1"></div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleGetExactLocation}
@@ -717,10 +885,13 @@ const CartDesktop: React.FC = () => {
                   </button>
                   <div className="rounded-2xl overflow-hidden border border-slate-200 h-56 mb-4 relative z-0">
                     <MapPicker
-                      latitude={formData.latitude}
-                      longitude={formData.longitude}
-                      onChange={(lat, lng) => verifyLocationPin(lat, lng)}
-                    />
+                    latitude={formData.latitude}
+                    longitude={formData.longitude}
+                    // ✅ Pass dynamic shop coordinates from local storage (or your context)
+                    shopLat={parseFloat(localStorage.getItem("outlet_lat") || "0")} 
+                    shopLng={parseFloat(localStorage.getItem("outlet_lng") || "0")}
+                    onChange={(lat, lng) => verifyLocationPin(lat, lng)}
+                  />
                   </div>
                   {locationError && (
                     <div className="text-xs font-bold text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
@@ -845,6 +1016,39 @@ const CartDesktop: React.FC = () => {
           </div>
         </div>
       )}
+
+
+      {/* ✅ NEW: BEAUTIFUL WEIGHT LIMIT MODAL (DESKTOP) */}
+      {showWeightLimitPopup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md p-8 rounded-[2rem] relative text-center shadow-2xl">
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 border-8 border-rose-50">
+              <Scale className="w-8 h-8 text-rose-500" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-slate-900 mb-2 tracking-tight">Weight Limit Reached</h3>
+            <p className="text-slate-500 font-medium mb-6 leading-relaxed">
+              Delivery riders have a maximum capacity of <span className="font-bold text-slate-800">5kg</span> per order.
+            </p>
+            
+            <div className="bg-cyan-50 border border-cyan-100 p-4 rounded-2xl mb-6">
+              <p className="text-sm text-cyan-800 font-semibold mb-1">For bulk ordering, please contact our outlet directly:</p>
+              <a href="tel:+919999999999" className="text-2xl font-black text-[#00b8d9] hover:text-[#009bb3] transition-colors">
+                +91 99999 99999
+              </a>
+            </div>
+
+            <button
+              onClick={() => setShowWeightLimitPopup(false)}
+              className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all active:scale-[0.98]"
+            >
+              Got it, thanks
+            </button>
+          </div>
+        </div>
+      )}
+
+
+
 
       {/* VALIDATION TOAST */}
       <div
@@ -1159,16 +1363,23 @@ const CartDesktop: React.FC = () => {
 
             <button
               onClick={handleCheckoutClick}
+              // ✅ ADDED: Hard lock if fee is null or missing
               disabled={
                 unavailableItemsCount > 0 ||
                 availableItems.length === 0 ||
-                isCalculatingFee
+                isCalculatingFee ||
+                getCurrentCartWeight(cart) > 5.0 ||
+                deliveryFee === null || 
+                deliveryFee === undefined 
               }
               className={`w-full font-bold text-lg py-4 rounded-2xl transition-all flex items-center justify-center gap-2 group ${
                 selectedAddress &&
                 unavailableItemsCount === 0 &&
                 availableItems.length > 0 &&
-                !isCalculatingFee
+                !isCalculatingFee &&
+                getCurrentCartWeight(cart) <= 5.0 &&
+                deliveryFee !== null &&
+                deliveryFee !== undefined
                   ? "bg-[#00b8d9] text-white hover:-translate-y-1"
                   : "bg-slate-200 text-slate-400 cursor-not-allowed"
               }`}

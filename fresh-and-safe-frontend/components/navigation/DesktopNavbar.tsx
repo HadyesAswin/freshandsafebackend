@@ -59,6 +59,10 @@ export default function DesktopNavbar() {
   const [authLoading, setAuthLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  // ✅ ADD THESE TWO LINES FOR THE TIMER
+  const [timeLeft, setTimeLeft] = useState(300); // 300 seconds = 5 minutes
+  const [isExpired, setIsExpired] = useState(false);
+
   // Fetch Contact Info for the top bar
   useEffect(() => {
     const fetchContactDetails = async () => {
@@ -154,6 +158,30 @@ export default function DesktopNavbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // --- OTP TIMER LOGIC ---
+  useEffect(() => {
+    // Only run the timer if we are actually on the OTP step
+    if (loginStep !== 'OTP') return;
+
+    if (timeLeft <= 0) {
+      setIsExpired(true);
+      return;
+    }
+
+    const timerId = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [timeLeft, loginStep]);
+
+  // Format the seconds into MM:SS for the UI
+  const formatTime = () => {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`;
+  };
 
   // --- 2. GLOBAL SEARCH LOGIC ---
   const handleGlobalSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,8 +354,12 @@ export default function DesktopNavbar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: phoneNumber }),
       });
-      if (res.ok) setLoginStep('OTP');
-      else setError("Error sending OTP");
+      if (res.ok) {
+        // ✅ RESET THE TIMER WHEN OTP IS SENT
+        setTimeLeft(300); 
+        setIsExpired(false);
+        setLoginStep('OTP');
+      } else setError("Error sending OTP");
     } catch (err) {
       setError("Network error");
     } finally {
@@ -796,10 +828,35 @@ export default function DesktopNavbar() {
                       </div>
                     </div>
 
+                    {/* ✅ THE NEW TIMER UI */}
+                    <div className="w-full text-center mb-4">
+                      {!isExpired ? (
+                        <p className="text-[11px] font-bold text-slate-500">
+                          OTP expires in: <span className="text-rose-500 text-xs">{formatTime()}</span>
+                        </p>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <p className="text-[11px] font-bold text-rose-500">OTP has expired!</p>
+                          <button 
+                            onClick={handleGetOtp}
+                            disabled={authLoading}
+                            className="text-xs font-bold text-[#00b8d9] hover:underline transition-all"
+                          >
+                            {authLoading ? "Sending..." : "Resend New OTP"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <button 
                       onClick={handleVerifyOtp}
-                      disabled={authLoading}
-                      className="w-full flex items-center justify-center gap-2 bg-[#00b8d9] text-white font-bold py-3.5 rounded-xl hover:bg-[#00a2bf] active:scale-[0.98] transition-all mb-4 disabled:opacity-70"
+                      // ✅ DISABLE BUTTON IF EXPIRED OR LOADING
+                      disabled={authLoading || isExpired}
+                      className={`w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl active:scale-[0.98] transition-all mb-4 ${
+                        isExpired || authLoading 
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                          : 'bg-[#00b8d9] text-white hover:bg-[#00a2bf]'
+                      }`}
                     >
                         {authLoading ? <Loader2 size={18} className="animate-spin" /> : "Verify & Login"}
                     </button>
@@ -852,7 +909,7 @@ export default function DesktopNavbar() {
                 )}
 
                 <p className="text-[10px] text-slate-400 mt-6 text-center leading-relaxed">
-                  By continuing, you agree to our <a href="#" className="underline hover:text-slate-600">Terms</a> and <a href="#" className="underline hover:text-slate-600">Privacy Policy</a>.
+                  By continuing, you agree to our <a href="/terms" className="underline hover:text-slate-600">Terms</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.
                 </p>
             </div>
         </div>

@@ -16,6 +16,7 @@ import razorpay # ✅ Import Razorpay
 import json # ✅ Added for Webhook Parsing
 import hmac # ✅ Added for Webhook Security
 import hashlib # ✅ Added for Webhook Security
+import math
 
 router = APIRouter()
 qwqer_api = QwqerService()
@@ -74,11 +75,19 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
             calculated_weight += (0.5 * item.quantity)
 
     # Ensure minimum Qwqer weight of 1.0 kg
+    # Ensure minimum Qwqer weight of 1.0 kg
     if calculated_weight < 1.0:
         calculated_weight = 1.0
 
+    # 🛑 SECURITY PATCH: Hard block for orders over 5kg
+    if calculated_weight > 5.0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Order weight ({round(calculated_weight, 1)}kg) exceeds the 5kg maximum capacity for a single delivery rider."
+        )
+
     tax_amount = 0.0
-    discount_amount = 0.0 
+    discount_amount = 0.0
     applied_coupon = None
 
     if order_data.coupon_code:
@@ -166,26 +175,48 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
 
     # 🛑 SECURITY PATCH 2: PREVENT DELIVERY FEE SPOOFING
     # Never trust the frontend delivery fee. Recalculate it instantly before checkout.
+
+    
     secure_delivery_fee = 0.0
-    if calculated_subtotal <= 500: # Free delivery above 500
-        assigned_outlet_obj = db.query(Outlet).filter(Outlet.id == final_assigned_outlet_id).first()
-        temp_order = Order(
-            delivery_latitude=delivery_lat, 
-            delivery_longitude=delivery_lng, 
-            delivery_zipcode=order_data.delivery_zipcode
+    
+    # ✅ REMOVED the "if calculated_subtotal <= 500" check.
+    # Now it ALWAYS calculates the delivery fee via Qwqer.
+    assigned_outlet_obj = db.query(Outlet).filter(Outlet.id == final_assigned_outlet_id).first()
+    
+    # 🛑 BULLETPROOF DOUBLE-CHECK AT CHECKOUT
+    def calc_distance(lat1, lon1, lat2, lon2):
+        if not all([lat1, lon1, lat2, lon2]): return 999.0
+        R = 6371.0
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c
+
+    actual_distance = calc_distance(assigned_outlet_obj.latitude, assigned_outlet_obj.longitude, delivery_lat, delivery_lng)
+
+    if actual_distance > 15.0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Checkout blocked! Address is {round(actual_distance, 1)}km away (Max allowed: 15km)."
         )
-        
-        # ✅ FIX: Use the mathematically calculated weight
-        price_data = qwqer_api.calculate_price(assigned_outlet_obj, temp_order, weight=round(calculated_weight, 2))
-        
-        if price_data:
-            fee = price_data.get("amount") if "amount" in price_data else price_data.get("delivery_amount")
-            if fee is not None:
-                secure_delivery_fee = float(fee)
-            else:
-                raise HTTPException(status_code=400, detail="Unable to verify secure delivery fee.")
+
+    temp_order = Order(
+        delivery_latitude=delivery_lat, 
+        delivery_longitude=delivery_lng, 
+        delivery_zipcode=order_data.delivery_zipcode
+    )
+    
+    price_data = qwqer_api.calculate_price(assigned_outlet_obj, temp_order, weight=round(calculated_weight, 2))
+    
+    if price_data:
+        fee = price_data.get("amount") if "amount" in price_data else price_data.get("delivery_amount")
+        if fee is not None:
+            secure_delivery_fee = float(fee)
         else:
-            raise HTTPException(status_code=400, detail="Logistics routing failed for this location.")
+            raise HTTPException(status_code=400, detail="Unable to verify secure delivery fee.")
+    else:
+        raise HTTPException(status_code=400, detail="Logistics routing failed for this location.")
 
     # Calculate mathematically secure final total
     final_total = calculated_subtotal + tax_amount + secure_delivery_fee - discount_amount
@@ -400,12 +431,15 @@ def get_order_details(order_number: str, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
         
+    # ✅ NEW: Fetch the outlet associated with this order
+    outlet = db.query(Outlet).filter(Outlet.id == order.outlet_id).first()
+        
     return {
         "order_number": order.order_number,
         "date": order.created_at.strftime("%B %d, %Y - %I:%M %p"),
         "status": order.order_status,
         "payment_method": order.payment_method,
-        "customer_note": order.customer_note, # ✅ ADDED THIS LINE
+        "customer_note": order.customer_note, 
         "shipping_address": {
             "name": order.delivery_name,
             "phone": order.delivery_phone,
@@ -414,6 +448,11 @@ def get_order_details(order_number: str, db: Session = Depends(get_db)):
             "city": order.delivery_city,
             "state": order.delivery_state,
             "zipcode": order.delivery_zipcode,
+        },
+        # ✅ NEW: Inject outlet contact details
+        "outlet_contact": {
+            "phone": outlet.phone if outlet else None,
+            "email": outlet.email if outlet else None
         },
         "totals": {
             "subtotal": order.subtotal,
@@ -429,7 +468,7 @@ def get_order_details(order_number: str, db: Session = Depends(get_db)):
                 "price": item.price_per_unit,
                 "quantity": item.quantity,
                 "subtotal": item.total_price,
-                "unit": item.product.unit # ✅ THIS WAS MISSING!
+                "unit": item.product.unit 
             } for item in order.order_items
         ]
     }
@@ -616,21 +655,36 @@ def calculate_delivery_fee(req: DeliveryFeeRequest, db: Session = Depends(get_db
             lat, lng = get_lat_lng_from_zipcode(req.delivery_zipcode)
 
     if not lat or not lng:
-        # ✅ NO 50 FALLBACK. THROW ERROR.
         raise HTTPException(status_code=400, detail="GPS Coordinates missing. Please set your location on the map.")
 
-    # Resolve correct outlet based on geography
+    # 1. Get the Outlet
     nearby_outlets = get_nearby_outlets(db, lat, lng)
     active_outlets = [o for o in nearby_outlets if o.status == True and o.is_deleted == False]
     
-    if active_outlets:
-        outlet = active_outlets[0] # Closest one
-    else:
-        outlet = db.query(Outlet).filter(Outlet.id == req.outlet_id).first()
+    outlet = active_outlets[0] if active_outlets else db.query(Outlet).filter(Outlet.id == req.outlet_id).first()
 
-    if not outlet:
-        raise HTTPException(status_code=404, detail="Outlet not found")
+    if not outlet or not outlet.latitude or not outlet.longitude:
+        raise HTTPException(status_code=404, detail="Outlet or Outlet GPS not found")
 
+    # 🛑 2. BULLETPROOF 15KM MATH CHECK (Independent of QWQER)
+    def calc_distance(lat1, lon1, lat2, lon2):
+        if not all([lat1, lon1, lat2, lon2]): return 999.0
+        R = 6371.0 # Earth radius in km
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c
+
+    actual_distance = calc_distance(outlet.latitude, outlet.longitude, lat, lng)
+
+    if actual_distance > 15.0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Delivery unavailable! This address is {round(actual_distance, 1)}km away. Our maximum delivery radius is 15km."
+        )
+
+    # 3. Only ask Qwqer for the price if it passed the math check
     temp_order = Order(
         delivery_latitude=lat, 
         delivery_longitude=lng, 
@@ -639,18 +693,16 @@ def calculate_delivery_fee(req: DeliveryFeeRequest, db: Session = Depends(get_db
 
     price_data = qwqer_api.calculate_price(outlet, temp_order, weight=req.weight)
 
-    # ✅ BUGFIX: Check for the correct key name and ensure we throw an error if Qwqer fails.
     if price_data:
         fee = price_data.get("amount") if "amount" in price_data else price_data.get("delivery_amount")
         if fee is not None:
             return {
                 "delivery_fee": float(fee), 
-                "distance": price_data.get("distance", 0),
+                "distance": round(actual_distance, 1),
                 "message": "Calculated via QWQER"
             }
     
-    # ✅ NO 50 FALLBACK. THROW ERROR.
-    raise HTTPException(status_code=400, detail="Delivery price calculation failed. Distance may be too far or system is down.")
+    raise HTTPException(status_code=400, detail="Delivery price calculation failed. Logistics routing unavailable.")
 
 
 # ==========================================

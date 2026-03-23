@@ -75,6 +75,10 @@ const CartMobile: React.FC = () => {
   const [locationError, setLocationError] = useState("");
   const [pinVerified, setPinVerified] = useState<boolean | null>(null);
 
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
+  const [mapSearchLoading, setMapSearchLoading] = useState(false);
+  const [mapSearchResults, setMapSearchResults] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     address1: "", address2: "", city: "", state: "", zipcode: "",
@@ -85,6 +89,8 @@ const CartMobile: React.FC = () => {
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
+
+  const [showWeightLimitPopup, setShowWeightLimitPopup] = useState(false);
 
   const topAddressRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +106,26 @@ const CartMobile: React.FC = () => {
     if (unit.includes("kg")) return `${(qty * unitValue).toFixed(1)}kg`;
     if (unit.includes("pc") || unit.includes("piece")) return `${qty * unitValue} Pcs`;
     return `${qty * unitValue} ${unitStr}`;
+  };
+
+  // ✅ NEW: Helper to calculate mathematical weight in KG
+  const getWeightInKg = (unitStr: string | undefined, qty: number) => {
+    if (!unitStr) return 0.5 * qty; // Default to 500g if no unit is set
+    
+    const unit = unitStr.toLowerCase();
+    const match = unit.match(/(\d+(\.\d+)?)/);
+    const unitValue = match ? parseFloat(match[0]) : 1;
+
+    if (unit.includes("kg")) return unitValue * qty;
+    if (unit.includes("g") && !unit.includes("k")) return (unitValue / 1000) * qty;
+    
+    // For "pc", "packet", "piece" -> Assume 500g (0.5kg)
+    return 0.5 * qty; 
+  };
+
+  // ✅ NEW: Calculate the total weight of the ENTIRE cart
+  const getCurrentCartWeight = (currentCart: CartItem[]) => {
+    return currentCart.reduce((total, item) => total + getWeightInKg(item.unit, item.quantity), 0);
   };
 
   const handleSelectSavedAddress = useCallback((addr: any) => {
@@ -119,6 +145,8 @@ const CartMobile: React.FC = () => {
     setUseNewAddress(true);
     setPinVerified(null);
     setLocationError("");
+    setMapSearchQuery(""); // ✅ Clear Search
+    setMapSearchResults([]); // ✅ Clear Results
     setFormData(prev => ({
       ...prev, firstName: user?.name || "", lastName: "",
       phone: user?.phone || "", email: user?.email || "",
@@ -243,6 +271,22 @@ const CartMobile: React.FC = () => {
   };
 
   const increaseQuantity = (id: number) => {
+    const itemToIncrease = cart.find((i) => i.id === id);
+    if (!itemToIncrease) return;
+
+    // 1. Calculate how much weight ONE MORE of this item adds
+    const additionalWeight = getWeightInKg(itemToIncrease.unit, 1);
+    
+    // 2. Get current total cart weight
+    const currentTotalWeight = getCurrentCartWeight(cart);
+
+    // 3. Check if adding this pushes us over 5kg
+    if (currentTotalWeight + additionalWeight > 5.0) {
+      setShowWeightLimitPopup(true);
+      return; // 🛑 Block the increase!
+    }
+
+    // 4. Safe to increase
     updateCartStorage(cart.map(item => item.id === id ? { ...item, quantity: item.quantity + 1 } : item));
     handleCartModification();
   };
@@ -292,6 +336,45 @@ const CartMobile: React.FC = () => {
     );
   };
 
+  // ✅ NEW: Search Map via Text
+  const handleSearchLocation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!mapSearchQuery.trim()) return;
+
+    setMapSearchLoading(true);
+    setLocationError("");
+    try {
+      const enhancedQuery = encodeURIComponent(`${mapSearchQuery.trim()}, Kerala`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${enhancedQuery}&countrycodes=in&format=json&addressdetails=1&limit=5`;
+      
+      const res = await fetch(url, { headers: { "Accept-Language": "en-US,en" } });
+      const data = await res.json();
+      
+      if (data && data.length > 0) {
+        setMapSearchResults(data);
+      } else {
+        setMapSearchResults([]);
+        setLocationError("Location not found. Try a different search term or use the map pin.");
+      }
+    } catch (err) {
+      console.error("Search failed", err);
+      setLocationError("Network error while searching map.");
+    } finally {
+      setMapSearchLoading(false);
+    }
+  };
+
+  // ✅ NEW: Select a search result and update the map
+  const handleSelectSearchResult = (lat: string, lon: string, displayName: string) => {
+    const numLat = parseFloat(lat);
+    const numLng = parseFloat(lon);
+    
+    setMapSearchQuery(displayName);
+    setMapSearchResults([]);
+    
+    verifyLocationPin(numLat, numLng);
+  };
+
   const saveNewAddressAndUse = () => {
     setSelectedAddress({
       name: `${formData.firstName} ${formData.lastName}`.trim(), type: "New",
@@ -305,7 +388,9 @@ const CartMobile: React.FC = () => {
 
   useEffect(() => {
     if (!selectedAddress || availableItems.length === 0) { setDeliveryFee(null); return; }
-    if (subtotal > 500) { setDeliveryFee(0); return; }
+    
+    // ✅ DELETED the subtotal > 500 block so it ALWAYS calculates a fee!
+
     const calculateFee = async () => {
       setIsCalculatingFee(true);
       let totalWeightInKg = 0;
@@ -326,10 +411,20 @@ const CartMobile: React.FC = () => {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ outlet_id: outletId, delivery_latitude: selectedAddress.latitude || null, delivery_longitude: selectedAddress.longitude || null, delivery_zipcode: selectedAddress.zipcode || localStorage.getItem("zipcode"), weight: parseFloat(totalWeightInKg.toFixed(2)) }),
         });
-        if (res.ok) { const data = await res.json(); setDeliveryFee(data.delivery_fee); }
-        else { setDeliveryFee(null); }
-      } catch { setDeliveryFee(null); }
-      finally { setIsCalculatingFee(false); }
+       if (res.ok) { 
+          const data = await res.json(); 
+          setDeliveryFee(data.delivery_fee); 
+        } else { 
+          // ✅ Catch the backend 15km error, drop the address, and alert the user
+          const errData = await res.json();
+          setDeliveryFee(null); 
+          setSelectedAddress(null);
+          alert(errData.detail || "Location is outside our 15km delivery zone.");
+        }
+      } catch { 
+        setDeliveryFee(null); 
+        setSelectedAddress(null);
+      } finally { setIsCalculatingFee(false); }
     };
     calculateFee();
   }, [selectedAddress, availableItems.length, subtotal]);
@@ -361,7 +456,14 @@ const CartMobile: React.FC = () => {
   };
 
   const handleCheckoutClick = () => {
-    if (deliveryFee === null && subtotal <= 500) { alert("Delivery fee is calculating. Please wait."); return; }
+    // ✅ NEW: Final Gatekeeper Check!
+    const totalCartWeight = getCurrentCartWeight(cart);
+    if (totalCartWeight > 5.0) {
+      setShowWeightLimitPopup(true);
+      return;
+    }
+
+    if (deliveryFee === null) { alert("Delivery fee is calculating. Please wait."); return; }
     localStorage.setItem("checkout_discount", JSON.stringify({ code: couponCode, amount: discount }));
     localStorage.setItem("selected_delivery_address", JSON.stringify(selectedAddress));
     localStorage.setItem("calculated_delivery_fee", JSON.stringify(deliveryFee));
@@ -555,7 +657,7 @@ const CartMobile: React.FC = () => {
             {user && savedAddresses.length > 0 && !useNewAddress && (
               <div className="space-y-3 mb-4">
                 {savedAddresses.map(addr => {
-                  const isOutOfZone = addr.zipcode && addr.zipcode.substring(0, 4) !== sessionZip.substring(0, 4);
+                  const isOutOfZone = addr.zipcode && sessionZip && String(addr.zipcode).substring(0, 3) !== String(sessionZip).substring(0, 3);
                   const isSelected = selectedAddress?.id === addr.id;
                   return (
                     <div key={addr.id} onClick={() => { if (!isOutOfZone) handleSelectSavedAddress(addr); }}
@@ -583,13 +685,64 @@ const CartMobile: React.FC = () => {
                 )}
 
                 {/* Map Step */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Step 1: Locate on Map</p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 overflow-visible">
+                  <p className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Step 1: Find on Map</p>
+                  
+                  {/* ✅ THE NEW SEARCH BAR */}
+                  <div className="mb-4 relative">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search area, street..."
+                        value={mapSearchQuery}
+                        onChange={(e) => setMapSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation()}
+                        className="flex-1 border border-slate-200 p-3 rounded-xl outline-none bg-white focus:ring-2 focus:ring-[#00b8d9]/20 focus:border-[#00b8d9] transition-all text-sm font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchLocation}
+                        disabled={mapSearchLoading || !mapSearchQuery}
+                        className="bg-slate-900 text-white px-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all text-sm flex items-center justify-center min-w-[80px]"
+                      >
+                        {mapSearchLoading ? <Loader2 size={16} className="animate-spin" /> : "Search"}
+                      </button>
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {mapSearchResults.length > 0 && (
+                      <ul className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                        {mapSearchResults.map((res: any, idx: number) => (
+                          <li
+                            key={idx}
+                            onClick={() => handleSelectSearchResult(res.lat, res.lon, res.display_name)}
+                            className="p-3 border-b border-slate-100 last:border-0 hover:bg-cyan-50 cursor-pointer text-[11px] leading-snug text-slate-700 font-medium transition-colors"
+                          >
+                            {res.display_name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mb-4 gap-4">
+                    <div className="h-px bg-slate-200 flex-1"></div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">OR</span>
+                    <div className="h-px bg-slate-200 flex-1"></div>
+                  </div>
+
                   <button type="button" onClick={handleGetExactLocation} disabled={isLocating} className="w-full mb-3 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 font-bold text-sm text-[#00b8d9] active:scale-[0.98]">
                     {isLocating ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />} Detect Live Location
                   </button>
                   <div className="rounded-xl overflow-hidden border border-slate-200 h-44 mb-3 relative z-0">
-                    <MapPicker latitude={formData.latitude} longitude={formData.longitude} onChange={(lat, lng) => verifyLocationPin(lat, lng)} />
+                    <MapPicker 
+                      latitude={formData.latitude} 
+                      longitude={formData.longitude} 
+                      // ✅ Fetch dynamic shop coordinates for the visual circle
+                      shopLat={parseFloat(localStorage.getItem("outlet_lat") || "0")} 
+                      shopLng={parseFloat(localStorage.getItem("outlet_lng") || "0")}
+                      onChange={(lat, lng) => verifyLocationPin(lat, lng)} 
+                    />
                   </div>
                   {locationError && <div className="text-[10px] font-bold text-rose-500 bg-rose-50 p-2.5 rounded-lg border border-rose-100">{locationError}</div>}
                   {pinVerified && (
@@ -665,12 +818,45 @@ const CartMobile: React.FC = () => {
           </div>
 
           {/* Checkout */}
-          <button onClick={handleCheckoutClick} disabled={isCalculatingFee || unavailableItemsCount > 0}
+          <button onClick={handleCheckoutClick} 
+            // ✅ Added deliveryFee === null lock so users can't bypass 15km error
+            disabled={isCalculatingFee || unavailableItemsCount > 0 || getCurrentCartWeight(cart) > 5.0 || deliveryFee === null}
             className={`w-full font-bold text-base py-4 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
-              !isCalculatingFee && unavailableItemsCount === 0 ? 'bg-[#00b8d9] text-white' : 'bg-slate-200 text-slate-400'
+              !isCalculatingFee && unavailableItemsCount === 0 && getCurrentCartWeight(cart) <= 5.0 && deliveryFee !== null
+                ? 'bg-[#00b8d9] text-white' 
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}>
             Checkout Securely
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ NEW: BEAUTIFUL WEIGHT LIMIT BOTTOM SHEET (MOBILE) */}
+      <div className={`fixed inset-0 z-[150] flex items-end transition-all duration-300 ${showWeightLimitPopup ? 'visible' : 'invisible pointer-events-none'}`}>
+        <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${showWeightLimitPopup ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowWeightLimitPopup(false)} />
+        <div className={`bg-white w-full rounded-t-3xl p-6 pb-8 relative transition-transform duration-300 text-center shadow-2xl ${showWeightLimitPopup ? 'translate-y-0' : 'translate-y-full'}`}>
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6"></div>
+          
+          <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-rose-50">
+            <Scale className="w-6 h-6 text-rose-500" />
+          </div>
+          
+          <h3 className="text-xl font-extrabold text-slate-900 mb-2">Weight Limit Reached</h3>
+          <p className="text-sm text-slate-500 font-medium mb-6 leading-relaxed">
+            Delivery riders have a maximum capacity of <span className="font-bold text-slate-800">5kg</span> per order.
+          </p>
+          
+          <div className="bg-cyan-50 border border-cyan-100 p-4 rounded-2xl mb-6">
+            <p className="text-xs text-cyan-800 font-semibold mb-1">For bulk ordering, please contact our outlet:</p>
+            <a href="tel:+919999999999" className="text-xl font-black text-[#00b8d9]">+91 99999 99999</a>
+          </div>
+          
+          <button
+            onClick={() => setShowWeightLimitPopup(false)}
+            className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl active:scale-[0.98] transition-all"
+          >
+            Got it
           </button>
         </div>
       </div>
