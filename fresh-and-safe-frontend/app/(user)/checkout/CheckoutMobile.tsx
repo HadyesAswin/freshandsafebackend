@@ -132,7 +132,9 @@ export default function CheckoutMobile() {
       setError("No delivery address found. Please go back to cart.");
       return;
     }
-    if (deliveryFee === null && subtotal <= 500) {
+    
+    // ✅ REMOVED the "&& subtotal <= 500" check. Now it ALWAYS requires a calculated delivery fee.
+    if (deliveryFee === null) {
       setError(
         "Delivery fee was not calculated. Please go back to cart and re-select your address."
       );

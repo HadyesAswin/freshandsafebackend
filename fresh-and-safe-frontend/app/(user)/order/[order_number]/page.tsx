@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { Scale, Loader2, MapPin, Package, Truck, ChevronLeft } from "lucide-react";
+import { Scale, Loader2, MapPin, Package, Truck, ChevronLeft, Headphones, Phone, Mail } from "lucide-react";
 
 const getStepIndex = (status: string) => {
   if (!status) return 0;
@@ -182,6 +182,37 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ order_n
             </div>
           </div>
         </div>
+
+
+        {/* ✅ NEW: NEED HELP / OUTLET CONTACT BOX */}
+        {order.outlet_contact && (order.outlet_contact.phone || order.outlet_contact.email) && (
+          <div className="bg-blue-50/50 p-5 md:p-6 rounded-2xl border border-blue-100 mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100/60 rounded-full flex items-center justify-center text-blue-600 flex-shrink-0">
+                <Headphones size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm md:text-base font-extrabold text-blue-950">Need help with this order?</h4>
+                <p className="text-[11px] md:text-xs text-blue-800/80 font-medium mt-0.5">Contact the fulfilling outlet directly for cancellations or refunds.</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2.5 bg-white px-4 py-3.5 rounded-xl border border-blue-100 shadow-sm w-full md:w-auto flex-shrink-0">
+              {order.outlet_contact.phone && (
+                <a href={`tel:${order.outlet_contact.phone}`} className="flex items-center gap-2.5 text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors">
+                  <div className="w-6 h-6 bg-slate-50 rounded-md flex items-center justify-center"><Phone size={12} className="text-blue-500" /></div>
+                  {order.outlet_contact.phone}
+                </a>
+              )}
+              {order.outlet_contact.email && (
+                <a href={`mailto:${order.outlet_contact.email}`} className="flex items-center gap-2.5 text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors">
+                  <div className="w-6 h-6 bg-slate-50 rounded-md flex items-center justify-center"><Mail size={12} className="text-blue-500" /></div>
+                  {order.outlet_contact.email}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Items */}
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden mb-6 md:mb-10">

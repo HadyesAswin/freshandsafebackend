@@ -127,14 +127,15 @@ export default function CheckoutPage() {
   const finalTotal = subtotal + (deliveryFee || 0) - discount.amount;
 
   // ─── Submit Order & Trigger Razorpay ───
+  // ─── Submit Order & Trigger Razorpay ───
   const handleSubmitOrder = async () => {
     if (!deliveryAddress) {
       setError("No delivery address found. Please go back to cart.");
       return;
     }
 
-    // Security Check: Prevent submitting if no delivery fee was calculated (and subtotal <= 500)
-    if (deliveryFee === null && subtotal <= 500) {
+    // ✅ REMOVED the "&& subtotal <= 500" check. Now it ALWAYS requires a calculated delivery fee.
+    if (deliveryFee === null) {
       setError("Delivery fee was not calculated properly. Please go back to cart and re-select your address.");
       return;
     }
