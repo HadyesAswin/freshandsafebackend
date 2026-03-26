@@ -9,6 +9,7 @@ from app.schemas.order import OrderCreate, OrderResponse, AddressUpdate, Deliver
 from app.services.qwqer_service import QwqerService
 # ✅ Added map services to imports
 from app.services.map_service import get_lat_lng_from_zipcode, get_nearby_outlets
+from app.core.redis_client import get_redis_client
 
 import uuid
 import datetime
@@ -17,6 +18,9 @@ import json # ✅ Added for Webhook Parsing
 import hmac # ✅ Added for Webhook Security
 import hashlib # ✅ Added for Webhook Security
 import math
+import hashlib
+
+
 
 router = APIRouter()
 qwqer_api = QwqerService()
@@ -376,6 +380,9 @@ def verify_payment(payment_data: PaymentVerification, db: Session = Depends(get_
         # =========================================================
 
         db.commit()
+
+        clear_coupons_cache_on_order()
+
         return {"status": "success", "message": "Payment verified successfully", "order_number": order.order_number}
 
     except razorpay.errors.SignatureVerificationError:
@@ -823,6 +830,9 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
                         db.add(usage_record)
 
             db.commit()
+
+            clear_coupons_cache_on_order()
+            
             return {"status": "success", "message": "Order successfully confirmed via webhook."}
 
         return {"status": "ignored", "reason": "Unhandled event type"}
@@ -830,3 +840,16 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"RAZORPAY WEBHOOK ERROR: {str(e)}")
         return {"status": "error", "message": str(e)}
+    
+
+def clear_coupons_cache_on_order():
+    try:
+        r = get_redis_client()
+        keys = list(r.scan_iter("coupons:*"))
+        if keys:
+            r.delete(*keys)
+    except Exception:
+        pass
+
+router = APIRouter()
+qwqer_api = QwqerService()    
