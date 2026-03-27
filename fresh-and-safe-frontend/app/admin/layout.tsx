@@ -27,6 +27,7 @@ import {
   LogOut,
   Menu,
   X,
+  Boxes
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -82,6 +83,7 @@ export default function AdminLayout({
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Categories", href: "/admin/categories", icon: FolderTree },
     { name: "Products", href: "/admin/products", icon: Package },
+    { name: "Stock / Inventory", href: "/admin/stock", icon: Boxes },
     { name: "Daily Deals", href: "/admin/daily-deals", icon: Zap },
     { name: "Coupons", href: "/admin/coupons", icon: Ticket },
 

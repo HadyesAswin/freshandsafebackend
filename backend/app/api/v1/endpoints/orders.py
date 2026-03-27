@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # ✅ Added for filtering unpaid orders
 from app.core.database import get_db
@@ -18,12 +18,21 @@ import json # ✅ Added for Webhook Parsing
 import hmac # ✅ Added for Webhook Security
 import hashlib # ✅ Added for Webhook Security
 import math
-import hashlib
 
-
+from app.websockets.order_ws import manager
 
 router = APIRouter()
 qwqer_api = QwqerService()
+
+# ✅ HELPER FUNCTION MOVED TO TOP
+def clear_coupons_cache_on_order():
+    try:
+        r = get_redis_client()
+        keys = list(r.scan_iter("coupons:*"))
+        if keys:
+            r.delete(*keys)
+    except Exception:
+        pass
 
 # ✅ INITIALIZE RAZORPAY CLIENT
 razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
@@ -32,6 +41,53 @@ def generate_order_number():
     date_str = datetime.datetime.now().strftime("%Y%m%d")
     short_uuid = str(uuid.uuid4())[:6].upper()
     return f"ORD-{date_str}-{short_uuid}"
+
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# =====================================================
+# BACKGROUND TASK: LOW STOCK ALERT EMAIL
+# =====================================================
+def send_low_stock_alert_email(product_name: str, outlet_name: str, current_stock: int):
+    # ⚠️ Replace these with your actual SMTP details
+    SMTP_SERVER = "smtp.gmail.com"
+    SMTP_PORT = 587
+    SENDER_EMAIL = "etournament49@gmail.com" # The email sending the alert
+    SENDER_PASSWORD = "ogtx onij tduj ckwb"     # App Password from Google
+    ADMIN_EMAIL = "etournament49@gmail.com"    # Where you want to receive the alert
+
+    subject = f"🚨 URGENT: Low Stock Alert - {product_name} at {outlet_name}"
+    body = f"""
+    Hello Admin,
+    
+    This is an automated alert from Fresh & Safe.
+    
+    Product: {product_name}
+    Outlet: {outlet_name}
+    Current Stock Left: {current_stock}
+    
+    Please restock this item soon to avoid losing sales!
+    
+    - Fresh & Safe System
+    """
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = ADMIN_EMAIL
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"📧 Low stock email sent for {product_name}!")
+    except Exception as e:
+        print(f"❌ Failed to send low stock email: {e}")
 
 # ==========================================
 # 1. CREATE ORDER (Now with Security Patches)
@@ -78,7 +134,6 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         else:
             calculated_weight += (0.5 * item.quantity)
 
-    # Ensure minimum Qwqer weight of 1.0 kg
     # Ensure minimum Qwqer weight of 1.0 kg
     if calculated_weight < 1.0:
         calculated_weight = 1.0
@@ -156,25 +211,41 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="No active outlets serve your selected location.")
 
     # Check inventory for all items in the order
+    # Check inventory and LIVE STOCK for all items in the order
     product_ids_requested = [item.product_id for item in order_data.items]
     final_assigned_outlet_id = None
+    failed_product_name = None
 
     for outlet in active_outlets:
-        available_prods = db.query(ShopProduct.product_id).filter(
+        # ✅ NEW: Fetch the whole ShopProduct row so we can read the 'stock' column
+        shop_prods = db.query(ShopProduct).filter(
             ShopProduct.outlet_id == outlet.id,
             ShopProduct.product_id.in_(product_ids_requested),
             ShopProduct.is_available == True
         ).all()
         
-        available_ids = {p[0] for p in available_prods}
+        shop_prod_map = {sp.product_id: sp for sp in shop_prods}
         
-        # Ensure the outlet has EVERY item requested
-        if all(pid in available_ids for pid in product_ids_requested):
+        has_all_items_with_stock = True
+        
+        # Ensure the outlet has EVERY item requested AND enough stock
+        for item in order_data.items:
+            sp = shop_prod_map.get(item.product_id)
+            if not sp or sp.stock < item.quantity:
+                has_all_items_with_stock = False
+                prod = product_map.get(item.product_id)
+                failed_product_name = prod.name if prod else "An item"
+                break
+                
+        if has_all_items_with_stock:
             final_assigned_outlet_id = outlet.id
             break
 
     if not final_assigned_outlet_id:
-        raise HTTPException(status_code=400, detail="Some items in your cart are currently unavailable in your area.")
+        if failed_product_name:
+            raise HTTPException(status_code=400, detail=f"Checkout failed: Not enough stock left for '{failed_product_name}'. Please reduce quantity.")
+        else:
+            raise HTTPException(status_code=400, detail="Some items are currently unavailable in your area.")
     # =========================================================
 
     # 🛑 SECURITY PATCH 2: PREVENT DELIVERY FEE SPOOFING
@@ -327,6 +398,14 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
 
+    if order_data.payment_method.lower() != "online":
+        import asyncio
+        asyncio.create_task(manager.broadcast({
+            "type": "new_order",
+            "order_id": new_order.id,
+            "order_number": new_order.order_number
+        }))
+
     # ✅ SEND RAZORPAY DETAILS TO FRONTEND
     return {
         "id": new_order.id,
@@ -342,7 +421,7 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
 # 1.5 VERIFY PAYMENT (Called by Frontend after success)
 # ==========================================
 @router.post("/verify-payment")
-def verify_payment(payment_data: PaymentVerification, db: Session = Depends(get_db)):
+async def verify_payment(payment_data: PaymentVerification, background_tasks: BackgroundTasks ,db: Session = Depends(get_db)):
     """Verifies the Razorpay signature to prevent fraud"""
     try:
         # Ask Razorpay library to verify the math
@@ -363,6 +442,37 @@ def verify_payment(payment_data: PaymentVerification, db: Session = Depends(get_
         order.razorpay_signature = payment_data.razorpay_signature
         
         # =========================================================
+        # ✅ NEW: DEDUCT STOCK PERMANENTLY & ALERT ADMIN
+        # =========================================================
+        for item in order.order_items:
+            shop_product = db.query(ShopProduct).filter(
+                ShopProduct.product_id == item.product_id,
+                ShopProduct.outlet_id == order.outlet_id
+            ).first()
+
+            if shop_product:
+                shop_product.stock -= item.quantity
+                
+                # Failsafe + Auto-hide
+                if shop_product.stock <= 0:
+                    shop_product.stock = 0
+                    shop_product.is_available = False
+                    
+                # 🚨 LOW STOCK CHECK 🚨
+                if shop_product.stock <= shop_product.low_stock_threshold:
+                    product = db.query(Product).filter(Product.id == item.product_id).first()
+                    outlet = db.query(Outlet).filter(Outlet.id == order.outlet_id).first()
+                    
+                    if product and outlet:
+                        background_tasks.add_task(
+                            send_low_stock_alert_email,
+                            product_name=product.name,
+                            outlet_name=outlet.outlet_name,
+                            current_stock=shop_product.stock
+                        )
+        # =========================================================
+        
+        # =========================================================
         # ✅ BUGFIX: Deduct the coupon ONLY when payment is successfully verified!
         # =========================================================
         if order.coupon_code and order.discount_amount > 0:
@@ -380,6 +490,11 @@ def verify_payment(payment_data: PaymentVerification, db: Session = Depends(get_
         # =========================================================
 
         db.commit()
+        await manager.broadcast({
+            "type": "new_order",
+            "order_id": order.id,
+            "order_number": order.order_number
+        })
 
         clear_coupons_cache_on_order()
 
@@ -639,8 +754,25 @@ def cancel_qwqer_delivery(order_id: int, reason_code: int = 1, db: Session = Dep
     if cancel_response.get("is_success") == True:
         order.qwqer_status = "Cancelled"
         order.order_status = OrderStatus.CANCELLED
+        
+        # =========================================================
+        # ✅ NEW: RESTORE STOCK FOR CANCELLED ORDERS
+        # =========================================================
+        for item in order.order_items:
+            shop_product = db.query(ShopProduct).filter(
+                ShopProduct.product_id == item.product_id,
+                ShopProduct.outlet_id == order.outlet_id
+            ).first()
+            
+            if shop_product:
+                shop_product.stock += item.quantity
+                # If it was hidden because it hit 0, make it available again!
+                if shop_product.stock > 0 and not shop_product.is_available:
+                    shop_product.is_available = True
+        # =========================================================
+        
         db.commit()
-        return {"message": "Delivery cancelled successfully"}
+        return {"message": "Delivery cancelled and stock restored successfully"}
     
     raise HTTPException(status_code=400, detail="Failed to cancel delivery in QWQER")
 
@@ -664,14 +796,22 @@ def calculate_delivery_fee(req: DeliveryFeeRequest, db: Session = Depends(get_db
     if not lat or not lng:
         raise HTTPException(status_code=400, detail="GPS Coordinates missing. Please set your location on the map.")
 
+    
     # 1. Get the Outlet
     nearby_outlets = get_nearby_outlets(db, lat, lng)
     active_outlets = [o for o in nearby_outlets if o.status == True and o.is_deleted == False]
     
-    outlet = active_outlets[0] if active_outlets else db.query(Outlet).filter(Outlet.id == req.outlet_id).first()
+    # 🛑 THE FIX: If there are no outlets nearby, don't fallback to a ghost ID. Throw the 15km error!
+    if not active_outlets:
+        raise HTTPException(
+            status_code=400, 
+            detail="Delivery unavailable. This location is outside our 15km delivery zone."
+        )
+        
+    outlet = active_outlets[0]
 
-    if not outlet or not outlet.latitude or not outlet.longitude:
-        raise HTTPException(status_code=404, detail="Outlet or Outlet GPS not found")
+    if not outlet.latitude or not outlet.longitude:
+        raise HTTPException(status_code=400, detail="Store GPS coordinates are missing.")
 
     # 🛑 2. BULLETPROOF 15KM MATH CHECK (Independent of QWQER)
     def calc_distance(lat1, lon1, lat2, lon2):
@@ -759,7 +899,7 @@ async def qwqer_webhook(request: Request, db: Session = Depends(get_db)):
 # 10. RAZORPAY SERVER-TO-SERVER WEBHOOK 
 # ==========================================
 @router.post("/razorpay-webhook")
-async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Listens for Razorpay's background server pings. 
     Secures the 'Closed Tab' issue where a user pays but doesn't wait for the confirmation page.
@@ -806,6 +946,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
                 return {"status": "success", "message": "Order already marked as paid."}
 
             # ✅ THE FIX: Mark order as paid because Razorpay confirmed it!
+            # ✅ THE FIX: Mark order as paid because Razorpay confirmed it!
             order.payment_status = PaymentStatus.PAID
             order.order_status = OrderStatus.CONFIRMED 
             
@@ -814,6 +955,39 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
                  order.razorpay_payment_id = data["payload"]["payment"]["entity"]["id"]
             except KeyError:
                  pass
+
+            # =========================================================
+            # ✅ NEW: DEDUCT STOCK PERMANENTLY (Webhook Fallback)
+            # =========================================================
+            # =========================================================
+            # ✅ NEW: DEDUCT STOCK PERMANENTLY (Webhook Fallback) & ALERT ADMIN
+            # =========================================================
+            for item in order.order_items:
+                shop_product = db.query(ShopProduct).filter(
+                    ShopProduct.product_id == item.product_id,
+                    ShopProduct.outlet_id == order.outlet_id
+                ).first()
+
+                if shop_product:
+                    shop_product.stock -= item.quantity
+                    if shop_product.stock <= 0:
+                        shop_product.stock = 0
+                        shop_product.is_available = False
+                        
+                    # 🚨 LOW STOCK CHECK 🚨
+                    if shop_product.stock <= shop_product.low_stock_threshold:
+                        product = db.query(Product).filter(Product.id == item.product_id).first()
+                        outlet = db.query(Outlet).filter(Outlet.id == order.outlet_id).first()
+                        
+                        if product and outlet:
+                            background_tasks.add_task(
+                                send_low_stock_alert_email,
+                                product_name=product.name,
+                                outlet_name=outlet.outlet_name,
+                                current_stock=shop_product.stock
+                            )
+            # =========================================================
+            # =========================================================
 
             # Apply Coupon usage logic in background
             if order.coupon_code and order.discount_amount > 0:
@@ -831,8 +1005,14 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
 
             db.commit()
 
+            await manager.broadcast({
+                "type": "new_order",
+                "order_id": order.id,
+                "order_number": order.order_number
+            })
+
             clear_coupons_cache_on_order()
-            
+
             return {"status": "success", "message": "Order successfully confirmed via webhook."}
 
         return {"status": "ignored", "reason": "Unhandled event type"}
@@ -840,16 +1020,3 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"RAZORPAY WEBHOOK ERROR: {str(e)}")
         return {"status": "error", "message": str(e)}
-    
-
-def clear_coupons_cache_on_order():
-    try:
-        r = get_redis_client()
-        keys = list(r.scan_iter("coupons:*"))
-        if keys:
-            r.delete(*keys)
-    except Exception:
-        pass
-
-router = APIRouter()
-qwqer_api = QwqerService()    

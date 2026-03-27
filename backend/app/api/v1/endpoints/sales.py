@@ -6,6 +6,9 @@ from app.core.database import get_db
 from app.models import Order, Outlet, OrderStatus, PaymentStatus
 from typing import Optional, List
 from datetime import date
+from fastapi.responses import StreamingResponse
+from io import StringIO
+import csv
 
 router = APIRouter()
 
@@ -76,3 +79,75 @@ def get_sales_overview(
             "last_page": (total_records // page_size) + (1 if total_records % page_size > 0 else 0)
         }
     }
+
+
+@router.get("/export")
+def export_sales(
+    db: Session = Depends(get_db),
+    outlet_id: Optional[int] = None,
+    year: Optional[int] = Query(2026),
+    month: Optional[int] = None,
+    specific_date: Optional[date] = None,
+):
+    # ✅ SAME VALID ORDER CONDITION (copy from overview)
+    valid_order_condition = or_(
+        func.lower(Order.payment_method) == "cod",
+        Order.payment_status == PaymentStatus.PAID,
+        Order.order_status != OrderStatus.PENDING
+    )
+
+    query = db.query(Order).filter(valid_order_condition)
+
+    # ✅ SAME FILTERS (IMPORTANT)
+    if outlet_id:
+        query = query.filter(Order.outlet_id == outlet_id)
+
+    if specific_date:
+        query = query.filter(func.date(Order.created_at) == specific_date)
+    else:
+        if year:
+            query = query.filter(extract('year', Order.created_at) == year)
+        if month:
+            query = query.filter(extract('month', Order.created_at) == month)
+
+    # ✅ GET ALL (no pagination)
+    orders = query.order_by(desc(Order.created_at)).all()
+
+    # ✅ CREATE CSV
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Header
+    writer.writerow([
+        "Order Number",
+        "Customer",
+        "Phone",
+        "Amount",
+        "Status",
+        "Date",
+        "Outlet",
+        "Payment Method"
+    ])
+
+    # Data rows
+    for o in orders:
+        writer.writerow([
+            o.order_number,
+            o.customer_name,
+            o.customer_phone,
+            o.total_amount,
+            o.order_status,
+            o.created_at.strftime("%Y-%m-%d %H:%M"),
+            o.outlet.outlet_name if o.outlet else "N/A",
+            o.payment_method
+        ])
+
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=sales_report.csv"
+        }
+    )    

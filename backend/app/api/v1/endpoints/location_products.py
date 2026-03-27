@@ -1,9 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, desc
 from sqlalchemy import or_
 from app.core.database import get_db
-from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner, Outlet, Testimonial, Zipcode
+from app.models import Product, ShopProduct, DailyDeal, Category, Marquee, Banner, Outlet, Testimonial, Zipcode, SearchTrend
 from app.services.map_service import get_lat_lng_from_zipcode, get_nearby_outlets
+
+from pydantic import BaseModel
+
+class SearchLogRequest(BaseModel):
+    term: str
+
+
 
 router = APIRouter()
 
@@ -11,12 +19,12 @@ router = APIRouter()
 # HOME DATA (Marquee + Banners + Products by Location)
 # =====================================================
 @router.get("/")
-def get_home_data(zipcode: str, db: Session = Depends(get_db)):
+def get_home_data(zipcode: str= None, db: Session = Depends(get_db)):
 
     # 1. Fetch Marquee (✅ Fetch ALL marquees instead of just the first one)
     marquees = db.query(Marquee).order_by(Marquee.created_at.desc()).all()
     if marquees:
-        # Join them all together with a spacer (e.g., ' • ')
+        # Join them all together with a spacer (e.g., ' • ')    
         marquee_text = "  •  ".join([m.text for m in marquees])
     else:
         marquee_text = "Welcome to Fresh&Safe! Deliveries available in select locations."
@@ -58,6 +66,17 @@ def get_home_data(zipcode: str, db: Session = Depends(get_db)):
         }
         for t in testimonials
     ]
+
+    if not zipcode or str(zipcode).strip() == "":
+        return {
+            "marquee": marquee_text,
+            "banners": banner_list,
+            "daily_deals": [],
+            "categories": category_list, 
+            "products": [],
+            "testimonials": testimonial_list,
+            "valid_location": False
+        }
 
     # Location Logic 
     user_lat, user_lng = None, None
@@ -303,13 +322,35 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
     }
 
 
+
+
+def log_search_term(db: Session, raw_query: str):
+    clean_query = raw_query.strip().lower()
+    if len(clean_query) < 3: # Ignore tiny searches
+        return
+
+    try:
+        trend = db.query(SearchTrend).filter(SearchTrend.term == clean_query).first()
+        if trend:
+            trend.count += 1
+        else:
+            new_trend = SearchTrend(term=clean_query, count=1)
+            db.add(new_trend)
+        db.commit()
+    except Exception as e:
+        print(f"FAILED TO LOG SEARCH: {e}")
+        db.rollback()
+
+
 # =====================================================
 # GLOBAL SEARCH (Categories & Location-Aware Products)
 # =====================================================
 @router.get("/search")
-def search_items(q: str, zipcode: str = None, db: Session = Depends(get_db)):
+def search_items(q: str,zipcode: str = None, db: Session = Depends(get_db)):
     if not q or len(q.strip()) < 2:
         return {"categories": [], "products": []}
+    
+    
 
     search_query = f"%{q.strip()}%"
 
@@ -371,7 +412,30 @@ def search_items(q: str, zipcode: str = None, db: Session = Depends(get_db)):
                     for p in products
                 ]
 
+    # ✅ NO MORE BACKGROUND LOGGING HERE - Kept purely for returning live typing results.
     return {
         "categories": category_results,
         "products": product_results
     }
+
+
+# =====================================================
+# LOG SEARCH CLICK (Fixes the "chic" problem)
+# =====================================================
+@router.post("/log-search")
+def log_popular_search(
+    req: SearchLogRequest, 
+    db: Session = Depends(get_db) # ❌ REMOVED BackgroundTasks
+):
+    # ✅ Save instantly while the database connection is still wide open!
+    log_search_term(db, req.term)
+    return {"status": "logged"}
+
+
+# =====================================================
+# POPULAR SEARCHES
+# =====================================================
+@router.get("/popular-searches")
+def get_popular_searches(limit: int = 5, db: Session = Depends(get_db)):
+    trends = db.query(SearchTrend).order_by(desc(SearchTrend.count)).limit(limit).all()
+    return [trend.term for trend in trends]

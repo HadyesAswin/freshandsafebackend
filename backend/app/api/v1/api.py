@@ -19,6 +19,7 @@ from app.api.v1.endpoints.user import privacy_policy as user_privacy
 from app.api.v1.endpoints.user import refund_policy as user_refund
 from app.api.v1.endpoints.user import contact as user_contact
 from app.api.v1.endpoints import blog as admin_blog
+from app.api.v1.endpoints.user import certificates
 from app.api.v1.endpoints.user import blog as user_blog
 
 api_router = APIRouter()
@@ -90,3 +91,6 @@ api_router.include_router(user_contact.router, prefix="/user/contact-info", tags
 api_router.include_router(admin_blog.router, prefix="/admin/blogs", tags=["Admin Blogs"])
 
 api_router.include_router(user_blog.router, prefix="/user/blogs", tags=["User Blogs"])
+
+api_router.include_router(certificates.router, prefix="/user/cerificates", tags=["Certificates"])
+

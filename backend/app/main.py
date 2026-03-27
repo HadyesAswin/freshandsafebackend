@@ -5,10 +5,11 @@ from app.api.v1.api import api_router
 from app.tasks import test_email_task # <--- Import the task
 from fastapi.staticfiles import StaticFiles
 import os
-
+from app.websockets import order_ws
 from app.routers import outlet_auth
 
 app = FastAPI(title="FreshToHome Clone Admin API")
+app.include_router(order_ws.router)
 
 # 1. Set up CORS (So your Frontend can talk to this Backend)
 origins = [

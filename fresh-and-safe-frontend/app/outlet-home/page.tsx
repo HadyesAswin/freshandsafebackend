@@ -56,6 +56,44 @@ export default function ShopHomePage() {
 
   useEffect(() => {
     fetchOrders();
+
+    const ws = new WebSocket("ws://localhost:8000/ws/orders");
+
+    ws.onopen = () => {
+      console.log("🟢 WebSocket Connected to Orders Live Stream");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "new_order") {
+          console.log("🔥 New order received in outlet");
+          // Slight delay to ensure database committed the transaction
+          setTimeout(() => {
+            fetchOrders();
+          }, 1000); 
+        }
+      } catch (e) {
+        console.error("Error parsing WebSocket message", e);
+      }
+    };
+
+    ws.onerror = () => {
+      // ✅ FIX: Silence the empty '{}' object spam. 
+      // This is a harmless side effect of React Strict Mode reloading.
+      console.warn("⚠️ WebSocket connection hiccup (Normal during dev hot-reloads).");
+    };
+
+    ws.onclose = () => {
+      console.log("🔴 WebSocket Disconnected");
+    };
+
+    return () => {
+      // ✅ FIX: Only close if it's actually open or connecting to avoid crash
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    };
   }, []);
 
   const updateStatus = async (orderId: number, currentStatus: string) => {
