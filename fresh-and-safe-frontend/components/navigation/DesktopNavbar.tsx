@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, ShoppingBag, User, MapPin, ChevronDown, Loader2 } from "lucide-react";
+import { Search, ShoppingBag, User, MapPin, ChevronDown, Loader2, X } from "lucide-react";
 
 // --- Interfaces ---
 interface Category {
@@ -46,6 +46,9 @@ export default function DesktopNavbar() {
   const [showGlobalDropdown, setShowGlobalDropdown] = useState(false);
   const globalSearchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const [popularSearches, setPopularSearches] = useState<string[]>([]);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // ================= AUTH STATE =================
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -104,6 +107,20 @@ export default function DesktopNavbar() {
     };
     updateCartCount();
 
+    // ✅ NEW: Fetch Popular Searches
+    const fetchPopularSearches = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/location-products/popular-searches");
+        if (res.ok) {
+          const data = await res.json();
+          setPopularSearches(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch popular searches", err);
+      }
+    };
+    fetchPopularSearches();
+
     const interval = setInterval(() => { checkUser(); updateCartCount(); }, 1000);
     window.addEventListener('storage', checkUser);
 
@@ -132,13 +149,13 @@ export default function DesktopNavbar() {
     const fetchNavData = async () => {
       try {
         const url = savedZipcode 
-          ? `http://localhost:8000/api/v1/location-products?zipcode=${savedZipcode}` 
-          : `http://localhost:8000/api/v1/location-products`; 
+          ? `http://localhost:8000/api/v1/location-products/?zipcode=${savedZipcode}` 
+          : `http://localhost:8000/api/v1/location-products/`;
 
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          if (data.marquee) setMarquee(data.marquee);
+          if (data.marquee) setMarquee(data.marquee); 
           if (data.categories) setCategories(data.categories);
         }
       } catch (err) {
@@ -149,10 +166,12 @@ export default function DesktopNavbar() {
   }, [savedZipcode]);
 
   // Click outside to close global search
+    // ✅ FIX: Click outside to close BOTH global search AND trending searches
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowGlobalDropdown(false);
+        setIsInputFocused(false); // 🛑 THIS IS THE MAGIC FIX
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -184,8 +203,10 @@ export default function DesktopNavbar() {
   };
 
   // --- 2. GLOBAL SEARCH LOGIC ---
-  const handleGlobalSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
+  // --- 2. GLOBAL SEARCH LOGIC ---
+
+  // ✅ 1. The Main Search Handler (Clean & Independent)
+  const handleGlobalSearch = (query: string) => {
     setGlobalSearchQuery(query);
 
     if (query.trim().length < 2) {
@@ -213,6 +234,32 @@ export default function DesktopNavbar() {
       }
     }, 400);
   };
+
+  // ✅ 2. Popular Search Click Handler (Independent)
+  const handlePopularSearchClick = (term: string) => {
+    setIsInputFocused(false);
+    handleGlobalSearch(term); // Just pass the string directly!
+  };  
+
+  // ✅ 3. Result Click Handler (Independent + Next.js safe routing)
+
+  const handleResultClick = (e: React.MouseEvent, fullName: string, targetUrl: string) => {
+    e.preventDefault(); // Stop Next.js from killing the page instantly
+    setShowGlobalDropdown(false);
+    setIsInputFocused(false);
+    
+    // Fire the log using keepalive so the browser sends it even as the page routes
+    fetch("http://localhost:8000/api/v1/location-products/log-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term: fullName }),
+      keepalive: true 
+    }).catch(err => console.error("Logging failed", err));
+
+    // Route the user
+    router.push(targetUrl);
+  };
+  
 
   // --- 3. LOCATION SEARCH LOGIC ---
   const handleLocSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -537,8 +584,11 @@ export default function DesktopNavbar() {
             <input 
               type="text" 
               value={globalSearchQuery}
-              onChange={handleGlobalSearch}
-              onFocus={() => { if (globalSearchQuery.length >= 2) setShowGlobalDropdown(true); }}
+              onChange={(e) => handleGlobalSearch(e.target.value)}
+              onFocus={() => { 
+                setIsInputFocused(true);
+                if (globalSearchQuery.length >= 2) setShowGlobalDropdown(true); 
+              }}
               placeholder="Search for fresh fish, meat..." 
               className="w-full bg-slate-100 border-2 border-transparent rounded-2xl py-3 px-12 text-sm outline-none focus:bg-white focus:border-[#00b8d9]/30 transition-all"
             />
@@ -546,6 +596,25 @@ export default function DesktopNavbar() {
               <Loader2 className="absolute left-4 top-3.5 text-[#00b8d9] animate-spin" size={18} />
             ) : (
               <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+            )}
+
+            {/* ✅ NEW: POPULAR SEARCHES DROPDOWN (Shows when focused & empty) */}
+            {isInputFocused && globalSearchQuery.length < 2 && popularSearches.length > 0 && (
+              <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden z-50 py-3">
+                <div className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <span className="text-rose-500">🔥</span> Trending Searches
+                </div>
+                {popularSearches.map((term, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handlePopularSearchClick(term)}
+                    className="w-full text-left px-5 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3 group"
+                  >
+                    <Search size={14} className="text-slate-300 group-hover:text-[#00b8d9]" />
+                    <span className="font-semibold text-slate-700 group-hover:text-[#00b8d9] text-sm capitalize">{term}</span>
+                  </button>
+                ))}
+              </div>
             )}
 
             {/* GLOBAL SEARCH DROPDOWN */}
@@ -563,7 +632,8 @@ export default function DesktopNavbar() {
                                       <Link 
                                           key={cat.slug} 
                                           href={`/categories/${cat.slug}`}
-                                          onClick={() => setShowGlobalDropdown(false)}
+                                          // ✅ FIX: Now passes the event, name, and URL
+                                          onClick={(e) => handleResultClick(e, cat.name, `/categories/${cat.slug}`)}
                                           className="flex items-center gap-3 px-4 py-2 hover:bg-cyan-50 transition-colors"
                                       >
                                           <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -583,7 +653,8 @@ export default function DesktopNavbar() {
                                       <Link 
                                           key={prod.slug} 
                                           href={`/product/${prod.slug}`}
-                                          onClick={() => setShowGlobalDropdown(false)}
+                                          // ✅ FIX: Now passes the event, name, and URL
+                                          onClick={(e) => handleResultClick(e, prod.name, `/product/${prod.slug}`)}
                                           className="flex items-center gap-3 px-4 py-2 hover:bg-cyan-50 transition-colors group"
                                       >
                                           <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">

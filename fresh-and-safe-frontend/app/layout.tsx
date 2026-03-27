@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import OrderListener from "@/components/OrderListener";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -23,6 +24,7 @@ export default function RootLayout({
         className={`${plusJakartaSans.variable} ${plusJakartaSans.className} antialiased bg-slate-50 text-slate-900`}
         suppressHydrationWarning
       >
+        <OrderListener />
         {children}
       </body>
     </html>

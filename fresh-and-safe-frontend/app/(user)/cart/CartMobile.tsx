@@ -66,6 +66,8 @@ const CartMobile: React.FC = () => {
   const [discount, setDiscount] = useState(0);
   const [couponError, setCouponError] = useState("");
 
+  const [contactInfo, setContactInfo] = useState<any>(null);
+
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
@@ -88,6 +90,7 @@ const CartMobile: React.FC = () => {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [stockWarning, setStockWarning] = useState("");
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
 
   const [showWeightLimitPopup, setShowWeightLimitPopup] = useState(false);
@@ -274,19 +277,26 @@ const CartMobile: React.FC = () => {
     const itemToIncrease = cart.find((i) => i.id === id);
     if (!itemToIncrease) return;
 
-    // 1. Calculate how much weight ONE MORE of this item adds
+    // ✅ NEW 1: Check Live Stock Limit first!
+    if (itemToIncrease.max_stock !== undefined && itemToIncrease.quantity >= itemToIncrease.max_stock) {
+      setStockWarning(`Only ${itemToIncrease.max_stock} available in stock for ${itemToIncrease.name}.`);
+      setTimeout(() => setStockWarning(""), 4000);
+      return; // 🛑 Block the increase!
+    }
+
+    // 2. Calculate how much weight ONE MORE of this item adds
     const additionalWeight = getWeightInKg(itemToIncrease.unit, 1);
     
-    // 2. Get current total cart weight
+    // 3. Get current total cart weight
     const currentTotalWeight = getCurrentCartWeight(cart);
 
-    // 3. Check if adding this pushes us over 5kg
+    // 4. Check if adding this pushes us over 5kg
     if (currentTotalWeight + additionalWeight > 5.0) {
       setShowWeightLimitPopup(true);
       return; // 🛑 Block the increase!
     }
 
-    // 4. Safe to increase
+    // 5. Safe to increase
     updateCartStorage(cart.map(item => item.id === id ? { ...item, quantity: item.quantity + 1 } : item));
     handleCartModification();
   };
@@ -335,6 +345,19 @@ const CartMobile: React.FC = () => {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
+
+
+  useEffect(() => {
+  fetch("http://localhost:8000/api/v1/contact/")
+    .then(res => res.json())
+    .then(data => {
+      const headOffice = data.find(
+        (c: any) => c.title === "Head Office"
+      );
+      setContactInfo(headOffice);
+    })
+    .catch(err => console.error("Failed to load contact info", err));
+}, []);
 
   // ✅ NEW: Search Map via Text
   const handleSearchLocation = async (e?: React.FormEvent) => {
@@ -526,6 +549,22 @@ const CartMobile: React.FC = () => {
         </div>
       </div>
 
+      {/* ✅ STOCK WARNING TOAST (Placed right here!) */}
+      <div
+        className={`fixed top-16 left-1/2 -translate-x-1/2 z-[150] w-[90%] transition-all duration-500 ease-out ${
+          stockWarning
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 -translate-y-10 scale-95 pointer-events-none"
+        }`}
+      >
+        <div className="bg-rose-500 shadow-xl shadow-rose-500/20 px-4 py-3 rounded-xl flex items-center gap-2.5">
+          <AlertCircle className="w-5 h-5 text-white flex-shrink-0" />
+          <span className="text-xs font-bold tracking-wide text-white leading-tight">
+            {stockWarning}
+          </span>
+        </div>
+      </div>
+
       {/* Unavailable Warning */}
       {unavailableItemsCount > 0 && (
         <div className="mx-4 mt-3 bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex items-start gap-2">
@@ -606,10 +645,25 @@ const CartMobile: React.FC = () => {
                   Remove
                 </button>
                 <div className="flex items-center gap-3">
-                  <div className={`flex items-center gap-2 ${isUnavailable && 'opacity-50 pointer-events-none'}`}>
-                    <button onClick={() => decreaseQuantity(item.id)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 font-bold text-base bg-white active:scale-95">-</button>
-                    <span className="text-sm font-extrabold text-slate-900 w-5 text-center">{item.quantity}</span>
-                    <button onClick={() => increaseQuantity(item.id)} className="w-7 h-7 rounded-lg border border-[#00b8d9] bg-[#00b8d9]/5 flex items-center justify-center text-[#00b8d9] font-bold text-base active:scale-95">+</button>
+                  <div className="flex flex-col items-center">
+                    <div className={`flex items-center gap-2 ${isUnavailable && 'opacity-50 pointer-events-none'}`}>
+                      <button onClick={() => decreaseQuantity(item.id)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 font-bold text-base bg-white active:scale-95">-</button>
+                      <span className="text-sm font-extrabold text-slate-900 w-5 text-center">{item.quantity}</span>
+                      <button 
+                        onClick={() => increaseQuantity(item.id)} 
+                        disabled={item.max_stock !== undefined && item.quantity >= item.max_stock}
+                        className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold text-base transition-all ${
+                          item.max_stock !== undefined && item.quantity >= item.max_stock
+                            ? "bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed" // Disabled
+                            : "border-[#00b8d9] bg-[#00b8d9]/5 text-[#00b8d9] active:scale-95"  // Active
+                        }`}>+</button>
+                    </div>
+                    {/* ✅ Show small warning text right below the buttons if stock limit reached */}
+                    {item.max_stock !== undefined && item.quantity >= item.max_stock && !isUnavailable && (
+                       <p className="text-[8px] font-bold text-rose-500 mt-1 uppercase tracking-wider text-center w-full">
+                         Max Stock
+                       </p>
+                    )}
                   </div>
                   <span className={`text-sm font-extrabold min-w-[60px] text-right ${isUnavailable ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                     ₹{(item.price * item.quantity).toFixed(2)}
@@ -849,7 +903,9 @@ const CartMobile: React.FC = () => {
           
           <div className="bg-cyan-50 border border-cyan-100 p-4 rounded-2xl mb-6">
             <p className="text-xs text-cyan-800 font-semibold mb-1">For bulk ordering, please contact our outlet:</p>
-            <a href="tel:+919999999999" className="text-xl font-black text-[#00b8d9]">+91 99999 99999</a>
+            <a href={`tel:${contactInfo?.phone || "+919999999999"}`} className="text-xl font-black text-[#00b8d9]">
+                {contactInfo?.phone || "+91 99999 99999"}
+              </a>
           </div>
           
           <button

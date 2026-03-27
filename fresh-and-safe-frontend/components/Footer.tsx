@@ -40,11 +40,17 @@ const Footer = () => {
       { name: 'Terms & Conditions', href: '/terms' },
       { name: 'Privacy Policy', href: '/privacy-policy' }, 
       { name: 'Refund Policy', href: '/refund-policy' }, 
+      
     ],
     [
+      { name: 'Certificates', href: '/certificates' }, 
       { name: 'FAQ', href: '/faq' }, 
       { name: 'Blog', href: '/blogs' },
       { name: 'Newsroom', href: '/news' }, 
+    ],
+    [
+      
+      
       { name: 'Contact Us', href: '/contact' }
     ]
   ];

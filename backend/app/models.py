@@ -360,6 +360,9 @@ class ShopProduct(Base):
     # Availability of product in this specific shop
     is_available = Column(Boolean, default=True)
 
+    stock = Column(Integer, default=0, nullable=False) 
+    low_stock_threshold = Column(Integer, default=5, nullable=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -584,3 +587,12 @@ class Blog(Base):
     published_at = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class SearchTrend(Base):
+    __tablename__ = "search_trends"
+
+    id = Column(Integer, primary_key=True, index=True)
+    term = Column(String, unique=True, index=True, nullable=False)
+    count = Column(Integer, default=1)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())    

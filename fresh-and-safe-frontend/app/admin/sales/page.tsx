@@ -83,22 +83,32 @@ export default function AdminSalesPage() {
     }
   };
 
-  const exportToCSV = () => {
-    if (!data.orders || data.orders.length === 0) return;
-    const headers = "Order #,Customer,Amount,Status,Date\n";
-    const rows = data.orders.map((o: any) => {
-      // ✅ Use formatted text for the CSV export too!
-      const formattedStatus = getStatusBadgeInfo(o.status).text;
-      return `${o.order_number},"${o.customer}",${o.amount},${formattedStatus},${o.date}`;
-    }).join("\n");
-    
-    const blob = new Blob([headers + rows], { type: "text/csv" });
+  const exportToCSV = async () => {
+  try {
+    const params = new URLSearchParams({
+      year: filters.year,
+      ...(filters.outlet_id && { outlet_id: filters.outlet_id }),
+      ...(filters.month && { month: filters.month }),
+      ...(filters.date && { specific_date: filters.date }),
+    });
+
+    const res = await fetch(
+      `http://localhost:8000/api/v1/sales/export?${params}`
+    );
+
+    const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sales_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = "sales_report.csv";
     a.click();
-  };
+
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Export failed:", err);
+  }
+};
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">

@@ -47,6 +47,7 @@ interface CartItem {
   quantity: number;
   unit?: string;
   is_available?: boolean;
+  max_stock?: number;
 }
 
 // ✅ Deduplicate cart items — warn in dev, merge as safety net
@@ -76,6 +77,8 @@ const CartDesktop: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [sessionZip, setSessionZip] = useState("");
 
+  const [contactInfo, setContactInfo] = useState<any>(null);
+
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [couponError, setCouponError] = useState("");
@@ -92,6 +95,18 @@ const CartDesktop: React.FC = () => {
   const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [mapSearchLoading, setMapSearchLoading] = useState(false);
   const [mapSearchResults, setMapSearchResults] = useState<any[]>([]);
+
+  useEffect(() => {
+  fetch("http://localhost:8000/api/v1/contact/")
+    .then(res => res.json())
+    .then(data => {
+      const headOffice = data.find(
+        (c: any) => c.title === "Head Office"
+      );
+      setContactInfo(headOffice);
+    })
+    .catch(err => console.error("Failed to load contact info", err));
+}, []);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -110,6 +125,7 @@ const CartDesktop: React.FC = () => {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [stockWarning, setStockWarning] = useState("");
   const [showWeightLimitPopup, setShowWeightLimitPopup] = useState(false);
 
   const calculateTotalWeight = (qty: number, unitStr: string | undefined) => {
@@ -347,19 +363,26 @@ const CartDesktop: React.FC = () => {
     const itemToIncrease = cart.find((i) => i.id === id);
     if (!itemToIncrease) return;
 
-    // 1. Calculate how much weight ONE MORE of this item adds
+    // ✅ NEW 1: Check Live Stock Limit first!
+    if (itemToIncrease.max_stock !== undefined && itemToIncrease.quantity >= itemToIncrease.max_stock) {
+      setStockWarning(`Only ${itemToIncrease.max_stock} available in stock for ${itemToIncrease.name}.`);
+      setTimeout(() => setStockWarning(""), 4000);
+      return; // 🛑 Block the increase!
+    }
+
+    // 2. Calculate how much weight ONE MORE of this item adds
     const additionalWeight = getWeightInKg(itemToIncrease.unit, 1);
     
-    // 2. Get current total cart weight
+    // 3. Get current total cart weight
     const currentTotalWeight = getCurrentCartWeight(cart);
 
-    // 3. Check if adding this pushes us over 5kg
+    // 4. Check if adding this pushes us over 5kg
     if (currentTotalWeight + additionalWeight > 5.0) {
       setShowWeightLimitPopup(true);
       return; // 🛑 Block the increase!
     }
 
-    // 4. If safe, increase quantity as normal
+    // 5. If safe on both stock AND weight, increase quantity
     updateCartStorage(
       cart.map((item) =>
         item.id === id ? { ...item, quantity: item.quantity + 1 } : item
@@ -1032,8 +1055,8 @@ const CartDesktop: React.FC = () => {
             
             <div className="bg-cyan-50 border border-cyan-100 p-4 rounded-2xl mb-6">
               <p className="text-sm text-cyan-800 font-semibold mb-1">For bulk ordering, please contact our outlet directly:</p>
-              <a href="tel:+919999999999" className="text-2xl font-black text-[#00b8d9] hover:text-[#009bb3] transition-colors">
-                +91 99999 99999
+              <a href={`tel:${contactInfo?.phone || "+919999999999"}`} className="text-xl font-black text-[#00b8d9]">
+                {contactInfo?.phone || "+91 99999 99999"}
               </a>
             </div>
 
@@ -1077,6 +1100,23 @@ const CartDesktop: React.FC = () => {
           </div>
           <span className="text-sm font-medium text-white whitespace-nowrap">
             Please select a delivery address first
+          </span>
+        </div>
+      </div>
+
+
+      {/* STOCK WARNING TOAST */}
+      <div
+        className={`fixed top-24 left-1/2 -translate-x-1/2 z-[150] transition-all duration-500 ease-out ${
+          stockWarning
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 -translate-y-10 scale-95 pointer-events-none"
+        }`}
+      >
+        <div className="bg-rose-500 shadow-xl shadow-rose-500/20 px-6 py-3 rounded-2xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-white" />
+          <span className="text-sm font-bold tracking-wide text-white whitespace-nowrap">
+            {stockWarning}
           </span>
         </div>
       </div>
@@ -1191,26 +1231,40 @@ const CartDesktop: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-end justify-between gap-4 mt-4">
-                    <div
-                      className={`flex items-center gap-3 bg-slate-50 rounded-xl p-1 border border-slate-200 ${
-                        isUnavailable && "opacity-50 pointer-events-none"
-                      }`}
-                    >
-                      <button
-                        onClick={() => decreaseQuantity(item.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition font-bold text-lg"
+                    <div>
+                      <div
+                        className={`flex items-center gap-3 bg-slate-50 rounded-xl p-1 border border-slate-200 w-max ${
+                          isUnavailable && "opacity-50 pointer-events-none"
+                        }`}
                       >
-                        -
-                      </button>
-                      <span className="w-8 text-center font-bold text-slate-800 text-sm">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => increaseQuantity(item.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-[#00b8d9]/20 text-[#00b8d9] hover:bg-[#00b8d9] hover:text-white transition font-bold text-lg"
-                      >
-                        +
-                      </button>
+                        <button
+                          onClick={() => decreaseQuantity(item.id)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition font-bold text-lg"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center font-bold text-slate-800 text-sm">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => increaseQuantity(item.id)}
+                          // ✅ Disable the + button if we hit the max stock limit
+                          disabled={item.max_stock !== undefined && item.quantity >= item.max_stock}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${
+                            item.max_stock !== undefined && item.quantity >= item.max_stock
+                              ? "bg-slate-100 border border-slate-200 text-slate-300 cursor-not-allowed" // Disabled style
+                              : "bg-white border border-[#00b8d9]/20 text-[#00b8d9] hover:bg-[#00b8d9] hover:text-white" // Active style
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {/* ✅ Show small warning text right below the buttons if stock limit reached */}
+                      {item.max_stock !== undefined && item.quantity >= item.max_stock && !isUnavailable && (
+                         <p className="text-[10px] font-bold text-rose-500 mt-1.5 uppercase tracking-wider">
+                           Max Stock Reached
+                         </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 font-bold block">

@@ -47,24 +47,24 @@ export default function OutletViewProduct() {
     }
   };
 
-  const handleToggle = async (productId: number) => {
-    try {
-      // Optimistic Update: Change UI immediately before server responds
-      setProducts(prev => prev.map(p => 
-        p.id === productId ? { ...p, is_enabled: !p.is_enabled } : p
-      ));
+  // const handleToggle = async (productId: number) => {
+  //   try {
+  //     // Optimistic Update: Change UI immediately before server responds
+  //     setProducts(prev => prev.map(p => 
+  //       p.id === productId ? { ...p, is_enabled: !p.is_enabled } : p
+  //     ));
 
-      await axios.post(
-        "http://localhost:8000/api/v1/outlet/products/toggle",
-        null,
-        { params: { outlet_id: outletId, product_id: productId } }
-      );
-      // No need to fetchProducts() here because the Interval will catch it anyway!
-    } catch (err) {
-      console.error("Toggle failed");
-      fetchProducts(true); // Revert changes on error
-    }
-  };
+  //     await axios.post(
+  //       "http://localhost:8000/api/v1/outlet/products/toggle",
+  //       null,
+  //       { params: { outlet_id: outletId, product_id: productId } }
+  //     );
+  //     // No need to fetchProducts() here because the Interval will catch it anyway!
+  //   } catch (err) {
+  //     console.error("Toggle failed");
+  //     fetchProducts(true); // Revert changes on error
+  //   }
+  // };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
@@ -159,7 +159,7 @@ export default function OutletViewProduct() {
             </div>
 
             {/* Action Button */}
-            <div className="mt-auto pt-4 border-t border-gray-100">
+            {/* <div className="mt-auto pt-4 border-t border-gray-100">
               <button
                 onClick={() => handleToggle(product.id)}
                 className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-[0.98] ${
@@ -171,7 +171,7 @@ export default function OutletViewProduct() {
                 <Power className="w-4 h-4" />
                 {product.is_enabled ? "Hide Product" : "Publish to Store"}
               </button>
-            </div>
+            </div> */}
           </div>
         ))}
       </div>

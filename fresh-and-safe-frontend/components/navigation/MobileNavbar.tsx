@@ -50,6 +50,9 @@ export default function MobileNavbar() {
   const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
   const globalSearchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [popularSearches, setPopularSearches] = useState<string[]>([]);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
   // Prevent background scrolling
   useEffect(() => {
     if (isSearchOpen || isCategoriesOpen || isLoginOpen) {
@@ -82,6 +85,19 @@ export default function MobileNavbar() {
     };
     updateCartCount();
 
+    const fetchPopularSearches = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/location-products/popular-searches");
+        if (res.ok) {
+          const data = await res.json();
+          setPopularSearches(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch popular searches", err);
+      }
+    };
+    fetchPopularSearches();
+
     const interval = setInterval(() => { checkUser(); updateCartCount(); }, 1000); // Poll for instant logout updates
     window.addEventListener('storage', checkUser);
 
@@ -113,6 +129,32 @@ export default function MobileNavbar() {
     };
     fetchNavData();
   }, [savedZipcode]);
+
+
+  // ✅ 3. ADD THIS CLICK HANDLER FOR TRENDING SEARCHES
+  const handlePopularSearchClick = (term: string) => {
+    setIsInputFocused(false);
+    // Fake the event object for your existing handler
+    handleGlobalSearch({ target: { value: term } } as React.ChangeEvent<HTMLInputElement>);
+  };
+
+  // ✅ 4. ADD THIS RESULT CLICK HANDLER (For tracking)
+  const handleResultClick = (e: React.MouseEvent, fullName: string, targetUrl: string) => {
+    e.preventDefault(); 
+    setIsSearchOpen(false);
+    setIsInputFocused(false);
+    setGlobalSearchQuery(""); // Clear the search
+    
+    // Fire the log using keepalive
+    fetch("http://localhost:8000/api/v1/location-products/log-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term: fullName }),
+      keepalive: true 
+    }).catch(err => console.error("Logging failed", err));
+
+    router.push(targetUrl);
+  };
 
   // ================= SEARCH LOGIC =================
   const handleGlobalSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -290,10 +332,7 @@ export default function MobileNavbar() {
     "bg-gray-100", "bg-purple-50", "bg-yellow-50"
   ];
   
-  const popularSearches = [
-    "chicken", "mathi", "neymeen", "prawns", "sardine", 
-    "ayala", "karimeen", "anchovy", "tuna", "natholi"
-  ];
+
 
   const navItems = [
     { name: "Home", href: "/", icon: Home },
@@ -427,6 +466,7 @@ export default function MobileNavbar() {
               type="text" 
               value={globalSearchQuery}
               onChange={handleGlobalSearch}
+              onFocus={() => setIsInputFocused(true)}
               placeholder="Type product name to search" 
               className="w-full bg-slate-100 text-slate-800 placeholder:text-slate-400 text-sm py-3 px-4 rounded-xl outline-none border border-transparent focus:border-[#00b8d9] focus:bg-white transition-all"
               autoFocus={isSearchOpen}
@@ -459,7 +499,7 @@ export default function MobileNavbar() {
                                       <Link 
                                           key={cat.slug} 
                                           href={`/categories/${cat.slug}`}
-                                          onClick={() => setIsSearchOpen(false)}
+                                          onClick={(e) => handleResultClick(e, cat.name, `/categories/${cat.slug}`)}
                                           className="flex items-center gap-3 px-4 py-2 border border-slate-100 rounded-xl active:bg-slate-50 transition-colors"
                                       >
                                           <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -481,7 +521,7 @@ export default function MobileNavbar() {
                                       <Link 
                                           key={prod.slug} 
                                           href={`/product/${prod.slug}`}
-                                          onClick={() => setIsSearchOpen(false)}
+                                          onClick={(e) => handleResultClick(e, prod.name, `/product/${prod.slug}`)}
                                           className="flex items-center gap-3 px-4 py-2 border border-slate-100 rounded-xl active:bg-slate-50 transition-colors"
                                       >
                                           <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -501,16 +541,18 @@ export default function MobileNavbar() {
                 </div>
             ) : (
                 <div className="mt-6">
-                    <h3 className="text-lg font-bold text-slate-900 mb-4">Popular searches</h3>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">
+                        <span className="text-rose-500 mr-2">🔥</span> Trending Searches
+                    </h3>
                     <div className="grid grid-cols-2 gap-3">
                         {popularSearches.map((term, index) => (
                             <button 
                                 key={index}
-                                onClick={() => setGlobalSearchQuery(term)}
+                                onClick={() => handlePopularSearchClick(term)}
                                 className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl bg-white active:bg-slate-50 transition-colors text-left"
                             >
-                                <ArrowUpRight size={16} className="text-emerald-500 shrink-0" />
-                                <span className="text-sm font-medium text-slate-700">{term}</span>
+                                <Search size={14} className="text-slate-300 shrink-0" />
+                                <span className="text-sm font-medium text-slate-700 capitalize">{term}</span>
                             </button>
                         ))}
                     </div>
