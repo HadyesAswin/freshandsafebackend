@@ -141,6 +141,14 @@ export default function CheckoutMobile() {
       return;
     }
 
+    // ✅ NEW: Final Stockout Guard
+    const hasUnavailableItems = cart.some(item => item.is_available === false);
+    if (hasUnavailableItems) {
+      setError("Some items in your cart are now out of stock. Please return to the cart and remove them.");
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -384,7 +392,7 @@ export default function CheckoutMobile() {
           <div className="divide-y divide-slate-50">
             {cart.map((item) => (
               <div key={item.id} className="px-4 py-3 flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 border border-slate-100">
+                <div className={`w-14 h-14 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 border border-slate-100 relative ${item.is_available === false ? 'grayscale opacity-50' : ''}`}>
                   {item.image ? (
                     <img
                       src={`http://localhost:8000${item.image}`}
@@ -396,9 +404,15 @@ export default function CheckoutMobile() {
                       No Img
                     </div>
                   )}
+                  {/* ✅ Small Overlay Badge for Stockout */}
+                  {item.is_available === false && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <span className="text-[6px] font-black text-white bg-rose-600 px-1 rounded-sm uppercase tracking-tighter">Stockout</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-slate-800 text-xs truncate">
+                  <h4 className={`font-bold text-xs truncate ${item.is_available === false ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                     {item.name}
                   </h4>
                   <div className="flex items-center gap-2 mt-0.5">

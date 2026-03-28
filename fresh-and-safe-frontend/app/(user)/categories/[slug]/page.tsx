@@ -14,6 +14,7 @@ interface Product {
   image?: string;
   unit?: string;
   category_name?: string;
+  is_available?: boolean;
 }
 
 export default function CategoryProductPage() {
@@ -249,11 +250,18 @@ export default function CategoryProductPage() {
 
                   <Link href={`/product/${item.slug}`}>
                     {/* Image */}
-                    <div className={`overflow-hidden rounded-xl bg-slate-50 mb-3 md:mb-5 relative ${isSingleColumn ? 'aspect-[16/9]' : 'aspect-square'}`}>
+                    <div className={`overflow-hidden rounded-xl bg-slate-50 mb-3 md:mb-5 relative flex items-center justify-center ${isSingleColumn ? 'aspect-[16/9]' : 'aspect-square'} ${item.is_available === false ? 'grayscale opacity-70' : ''}`}>
                       {item.image ? (
                         <img src={`http://localhost:8000${item.image}`} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"><span className="text-3xl text-slate-200">📦</span></div>
+                      )}
+
+                      {/* ✅ NEW: The Stockout Badge */}
+                      {item.is_available === false && (
+                        <div className="absolute top-2 left-2 bg-gray-900/90 text-white text-[9px] md:text-[10px] font-extrabold px-2.5 py-1 rounded uppercase tracking-widest backdrop-blur-sm z-10 shadow-sm">
+                          Out of Stock
+                        </div>
                       )}
                     </div>
 

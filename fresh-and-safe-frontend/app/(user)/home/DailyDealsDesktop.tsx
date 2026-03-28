@@ -15,6 +15,7 @@ interface Deal {
   category?: any; 
   category_name?: string;
   slug?: string;
+  is_available?: boolean;
 }
 
 export default function DailyDeals() {
@@ -192,7 +193,8 @@ export default function DailyDeals() {
                 {/* 👇 FIX: Changed from /products/ to /product/ */}
                 <Link href={`/product/${item.slug || item.id}`}>
                   {/* Image Container */}
-                  <div className="overflow-hidden rounded-xl bg-slate-50 mb-5 relative aspect-square flex items-center justify-center">
+                  {/* ✅ UPDATED: Image Container with Grayscale & Stockout Badge */}
+                  <div className={`overflow-hidden rounded-xl bg-slate-50 mb-5 relative aspect-square flex items-center justify-center ${item.is_available === false ? 'grayscale opacity-70' : ''}`}>
                     {item.image ? (
                       <img 
                         src={`http://localhost:8000${item.image}`} 
@@ -200,7 +202,14 @@ export default function DailyDeals() {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                       />
                     ) : (
-                      <span className="text-4xl">🥩</span> // Fallback icon
+                      <span className="text-4xl">🥩</span> 
+                    )}
+                    
+                    {/* The OUT OF STOCK Badge overlay */}
+                    {item.is_available === false && (
+                      <div className="absolute top-3 left-3 bg-gray-900/90 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded uppercase tracking-widest backdrop-blur-sm z-10 shadow-lg">
+                        Out of Stock
+                      </div>
                     )}
                   </div>
 

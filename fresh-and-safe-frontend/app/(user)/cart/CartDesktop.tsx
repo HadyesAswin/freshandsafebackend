@@ -1167,7 +1167,7 @@ const CartDesktop: React.FC = () => {
                 {isUnavailable && (
                   <div className="absolute top-0 left-0 bg-rose-500 text-white px-3 py-1.5 rounded-br-2xl rounded-tl-3xl shadow-sm flex items-center gap-1.5 z-10">
                     <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Out of Delivery Zone
+                      {item.max_stock === 0 ? "Stockout / Out of Stock" : "Out of Delivery Zone"}
                     </span>
                   </div>
                 )}
@@ -1213,8 +1213,9 @@ const CartDesktop: React.FC = () => {
                   <div>
                     <div className="flex gap-2 items-center mb-1 pr-8">
                       {isUnavailable ? (
-                        <h3 className="text-lg font-bold text-slate-500 line-through">
-                          {item.name}
+                        <h3 className="text-lg font-bold text-slate-400 line-through">
+                          {item.name} 
+                          <span className="ml-2 text-[10px] no-underline inline-block bg-slate-200 px-2 py-0.5 rounded text-slate-500">Unavailable</span>
                         </h3>
                       ) : (
                         <Link href={`/product/${item.slug}`}>
@@ -1268,13 +1269,11 @@ const CartDesktop: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 font-bold block">
-                        Price per pack
+                        {isUnavailable ? "Item Total" : "Price per pack"}
                       </span>
                       <span
                         className={`text-lg font-extrabold ${
-                          isUnavailable
-                            ? "text-slate-400 line-through"
-                            : "text-slate-800"
+                          isUnavailable ? "text-slate-300 line-through" : "text-slate-800"
                         }`}
                       >
                         ₹{(item.price * item.quantity).toFixed(2)}

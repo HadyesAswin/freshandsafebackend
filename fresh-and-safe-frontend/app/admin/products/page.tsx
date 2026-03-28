@@ -43,6 +43,22 @@ export default function ProductsPage() {
     }
   };
 
+
+  // ✅ NEW: Toggle Stock Status
+  const handleToggleStock = async (id: number, currentAvailability: boolean) => {
+    const token = localStorage.getItem("admin_token");
+    try {
+      await axios.patch(
+        `http://localhost:8000/api/v1/products/${id}/availability`,
+        { is_available: !currentAvailability },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchData(); // Refresh list immediately
+    } catch (error) {
+      alert("Failed to update stock status.");
+    }
+  };
+
   // Safe helper to get category name (handles both nested objects and raw IDs)
   const getCategoryName = (product: any) => {
     if (product.category?.name) return product.category.name;
@@ -105,6 +121,7 @@ export default function ProductsPage() {
                 {/* ✅ Updated Header Title */}
                 <th scope="col" className="px-6 py-4 font-medium">Price / Unit</th>
                 <th scope="col" className="px-6 py-4 font-medium text-center">Status</th>
+                <th scope="col" className="px-6 py-4 font-medium text-center">Stock</th>
                 <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -170,6 +187,29 @@ export default function ProductsPage() {
                       }`}>
                         {product.status ? "Active" : "Inactive"}
                       </span>
+                    </td>
+                    {/* ✅ NEW: The Stock Toggle Switch */}
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggleStock(product.id, product.is_available)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                            product.is_available ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gray-300 hover:bg-gray-400'
+                          }`}
+                          title={product.is_available ? "Mark as Stockout" : "Mark as In Stock"}
+                        >
+                          <span 
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                              product.is_available ? 'translate-x-6' : 'translate-x-1'
+                            }`} 
+                          />
+                        </button>
+                        <span className={`text-[10px] font-extrabold uppercase tracking-widest ${
+                          product.is_available ? 'text-emerald-600' : 'text-gray-400'
+                        }`}>
+                          {product.is_available ? 'In Stock' : 'Stockout'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

@@ -59,6 +59,9 @@ function ProductFormContent() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
   // Load categories
   useEffect(() => {
     axios
@@ -97,67 +100,99 @@ function ProductFormContent() {
       });
   }, [id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(""); // Clear old messages
-    const token = localStorage.getItem("admin_token");
+  const submitProduct = async () => {
+  setLoading(true);
+  setMessage("Processing...");
 
-    const data = new FormData();
-    data.append("category_id", String(categoryId));
-    data.append("name", name);
-    data.append("slug", slug);
-    data.append("price", String(price));
-    if (comparePrice !== "") data.append("compare_price", String(comparePrice));
-    data.append("unit", unit);
-    data.append("description", description);
-    if (metaTitle) data.append("meta_title", metaTitle);
-    if (metaDescription) data.append("meta_description", metaDescription);
-    data.append("status", String(status));
-    data.append("is_available", String(isAvailable));
-    
-    // ✅ Append multiple images
-    images.forEach(img => {
-      data.append("images", img);
+  const token = localStorage.getItem("admin_token");
+
+  const data = new FormData();
+  data.append("category_id", String(categoryId));
+  data.append("name", name);
+  data.append("slug", slug);
+  data.append("price", String(price));
+  if (comparePrice !== "") data.append("compare_price", String(comparePrice));
+  data.append("unit", unit);
+  data.append("description", description);
+  if (metaTitle) data.append("meta_title", metaTitle);
+  if (metaDescription) data.append("meta_description", metaDescription);
+  data.append("status", String(status));
+  data.append("is_available", String(isAvailable));
+
+  images.forEach((img) => data.append("images", img));
+  data.append("existing_images", JSON.stringify(currentImages));
+
+  try {
+    await axios({
+      method: isEdit ? "put" : "post",
+      url: isEdit
+        ? `http://localhost:8000/api/v1/products/${id}`
+        : "http://localhost:8000/api/v1/products/",
+      data,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
     });
-    // Send array of URLs that the user kept (didn't delete)
-    data.append("existing_images", JSON.stringify(currentImages));
 
-    try {
-      await axios({
-        method: isEdit ? "put" : "post",
-        url: isEdit
-          ? `http://localhost:8000/api/v1/products/${id}`
-          : "http://localhost:8000/api/v1/products/",
-        data,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
+    setMessage(
+      isEdit
+        ? "Product updated successfully ✅"
+        : "Product created successfully ✅"
+    );
+    setTimeout(() => {
+    router.push("/admin/products"); 
+    }, 1000);
 
-      router.push("/admin/products");
-    } catch (err: any) {
-      // ✅ BUGFIX: Safely handle FastAPI's 422 array of objects
-      const detail = err.response?.data?.detail;
-      
-      if (Array.isArray(detail)) {
-        // Map through the array and extract the specific field that failed
-        const errorMessages = detail.map((d: any) => {
-          const field = d.loc[d.loc.length - 1]; // e.g. "price" or "category_id"
-          return `${field}: ${d.msg}`;
-        });
-        setMessage(`Validation Error: ${errorMessages.join(" | ")}`);
-      } else if (typeof detail === "string") {
-        // If it's a standard string error
-        setMessage(detail);
-      } else {
-        setMessage("An unexpected error occurred. Please check your inputs.");
-      }
-    } finally {
-      setLoading(false);
+  } catch (err: any) {
+    const detail = err.response?.data?.detail;
+    if (Array.isArray(detail)) {
+      const msgs = detail.map((d: any) => `${d.loc.at(-1)}: ${d.msg}`);
+      setMessage(msgs.join(" | "));
+    } else {
+      setMessage(detail || "Something went wrong");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (isEdit) {
+    setShowPasswordModal(true); // 🔐 require password
+  } else {
+    submitProduct(); // create product directly
+  }
+};
+
+  const handleSubmitWithPassword = async () => {
+  console.log("Confirm clicked");
+
+  const token = localStorage.getItem("admin_token");
+
+  try {
+    await axios.post(
+      "http://localhost:8000/api/v1/auth/verify-password",
+      { password: adminPassword },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    console.log("Password verified");
+
+    setShowPasswordModal(false);
+    setAdminPassword("");
+
+    await submitProduct(); // ✅ now works
+
+  } catch (err: any) {
+    console.log(err.response?.data);
+    setMessage(err.response?.data?.detail || "Invalid password");
+  }
+};
 
   const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
   const labelClass = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2";
@@ -445,15 +480,49 @@ function ProductFormContent() {
             Cancel
           </button>
           <button 
-            type="submit" 
-            disabled={loading}
-            className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-          >
+              type={isEdit ? "button" : "submit"}  // IMPORTANT
+              disabled={loading}
+              onClick={() => {
+                if (isEdit) {
+                  setShowPasswordModal(true); // show modal first
+                }
+              }}
+              className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-lg ..."
+            >
             {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Save className="w-4 h-4 text-white" />}
             {isEdit ? "Update Product" : "Save Product"}
           </button>
         </div>
       </form>
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-80">
+            <h3 className="font-semibold mb-3">Enter Admin Password</h3>
+
+            {message && (
+              <p className="text-red-500 text-sm mb-2">{message}</p>
+            )}
+            
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              className="w-full border p-2 rounded mb-4"
+              placeholder="Enter password"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowPasswordModal(false)}>Cancel</button>
+              <button
+                onClick={() => handleSubmitWithPassword()}
+                className="bg-red-600 text-white px-4 py-2 rounded"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

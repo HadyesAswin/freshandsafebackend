@@ -110,6 +110,9 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         prod = product_map.get(item.product_id)
         if not prod:
             raise HTTPException(status_code=400, detail=f"Product unavailable: ID {item.product_id}")
+
+        if not prod.is_available or not prod.status or prod.is_deleted:
+            raise HTTPException(status_code=400, detail=f"Checkout failed: '{prod.name}' is currently out of stock.")    
         
         # Override the frontend price with the real database price
         item.price_per_unit = prod.price 

@@ -8,6 +8,11 @@ import os
 from app.websockets import order_ws
 from app.routers import outlet_auth
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.core.database import SessionLocal
+from app.services.report_service import generate_outlet_csvs
+from app.services.email_service import send_sales_report_email
+
 app = FastAPI(title="FreshToHome Clone Admin API")
 app.include_router(order_ws.router)
 
@@ -47,3 +52,44 @@ os.makedirs("static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(outlet_auth.router, prefix="/api/v1/outlet", tags=["Outlet Auth"])
+
+
+def daily_sales_job():
+    print("🚀 Running daily_sales_job...")
+
+    db = SessionLocal()
+
+    try:
+        file_paths = generate_outlet_csvs(db)
+        print("📁 Files:", file_paths)
+
+        if file_paths:
+            send_sales_report_email(file_paths)
+            print("📧 Email sent")
+
+        else:
+            print("⚠️ No orders today")
+
+    except Exception as e:
+        print("❌ ERROR:", str(e))
+
+    finally:
+        db.close()
+
+
+scheduler = BackgroundScheduler()
+
+# scheduler.add_job(
+#     daily_sales_job,
+#     "cron",
+#     hour=3,
+#     minute=56,
+#     timezone="Asia/Kolkata"
+# )
+
+# scheduler.add_job(daily_sales_job, "interval", minutes=1)
+
+@app.on_event("startup")
+def start_scheduler():
+    print("✅ Scheduler started")   # 👈 ADD THIS
+    scheduler.start()

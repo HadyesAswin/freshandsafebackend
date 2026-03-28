@@ -15,6 +15,7 @@ from app.models import Product as ProductModel
 from app.models import User
 from app.schemas.product import Product
 from app.tasks import notify_admin_event
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -213,6 +214,31 @@ def update_product(
     clear_products_cache()
     # notify_admin_event.delay("UPDATE", f"Product Updated: {product.id}")
 
+    return product
+
+
+# ==========================================
+# QUICK TOGGLE: IN STOCK / STOCKOUT
+# ==========================================
+class ProductAvailabilityUpdate(BaseModel):
+    is_available: bool
+
+@router.patch("/{product_id}/availability", response_model=Product)
+def toggle_product_availability(
+    product_id: int,
+    req: ProductAvailabilityUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_admin),
+):
+    product = db.query(ProductModel).filter(ProductModel.id == product_id, ProductModel.is_deleted == False).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product.is_available = req.is_available
+    db.commit()
+    db.refresh(product)
+    
+    clear_products_cache()
     return product
 
 

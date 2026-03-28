@@ -11,6 +11,7 @@ interface CartItem {
   quantity: number;
   unit?: string;
   slug?: string;
+  is_available?: boolean;
 }
 
 interface DeliveryAddress {
@@ -137,6 +138,14 @@ export default function CheckoutPage() {
     // ✅ REMOVED the "&& subtotal <= 500" check. Now it ALWAYS requires a calculated delivery fee.
     if (deliveryFee === null) {
       setError("Delivery fee was not calculated properly. Please go back to cart and re-select your address.");
+      return;
+    }
+
+    // ✅ NEW: Final Stockout Guard
+    const hasUnavailableItems = cart.some(item => item.is_available === false);
+    if (hasUnavailableItems) {
+      setError("Some items in your cart are now out of stock. Please return to the cart and remove them.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -402,23 +411,23 @@ export default function CheckoutPage() {
                     className="px-6 py-4 flex items-center gap-4"
                   >
                     {/* Product Image */}
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 border border-slate-100">
+                    <div className={`w-16 h-16 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 border border-slate-100 relative ${item.is_available === false ? 'grayscale opacity-50' : ''}`}>
                       {item.image ? (
-                        <img
-                          src={`http://localhost:8000${item.image}`}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={`http://localhost:8000${item.image}`} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-300 font-bold uppercase">
-                          No Img
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-300 font-bold uppercase">No Img</div>
+                      )}
+                      {/* Small Overlay Badge */}
+                      {item.is_available === false && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <span className="text-[7px] font-black text-white bg-rose-600 px-1 rounded-sm uppercase tracking-tighter">Stockout</span>
                         </div>
                       )}
                     </div>
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-slate-800 text-sm truncate">
+                      <h4 className={`font-bold text-sm truncate ${item.is_available === false ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                         {item.name}
                       </h4>
                       <div className="flex items-center gap-3 mt-1">

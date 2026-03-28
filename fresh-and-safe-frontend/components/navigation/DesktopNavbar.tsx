@@ -653,16 +653,23 @@ export default function DesktopNavbar() {
                                       <Link 
                                           key={prod.slug} 
                                           href={`/product/${prod.slug}`}
-                                          // ✅ FIX: Now passes the event, name, and URL
                                           onClick={(e) => handleResultClick(e, prod.name, `/product/${prod.slug}`)}
-                                          className="flex items-center gap-3 px-4 py-2 hover:bg-cyan-50 transition-colors group"
+                                          className={`flex items-center gap-3 px-4 py-2 hover:bg-cyan-50 transition-colors group ${prod.is_available === false ? 'opacity-60 grayscale' : ''}`}
                                       >
-                                          <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                                          <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform relative">
                                               {prod.image ? <img src={`http://localhost:8000${prod.image}`} alt={prod.name} className="w-full h-full object-cover" /> : <span>📦</span>}
                                           </div>
                                           <div className="flex-1 min-w-0">
                                               <p className="font-bold text-slate-800 text-sm truncate group-hover:text-[#00b8d9] transition-colors">{prod.name}</p>
-                                              <p className="text-emerald-600 font-black text-xs">₹{prod.price}</p>
+                                              <div className="flex items-center gap-2">
+                                                <p className="text-emerald-600 font-black text-xs">₹{prod.price}</p>
+                                                {/* Mini badge for search results */}
+                                                {prod.is_available === false && (
+                                                  <span className="bg-gray-200 text-gray-500 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                    Stockout
+                                                  </span>
+                                                )}
+                                              </div>
                                           </div>
                                       </Link>
                                   ))}
