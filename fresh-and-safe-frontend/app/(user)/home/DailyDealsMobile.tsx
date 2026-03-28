@@ -13,6 +13,7 @@ interface Deal {
   unit?: string;
   slug?: string;
   category_name?: string;
+  is_available?: boolean;
 }
 
 export default function DailyDealsMobile() {
@@ -180,7 +181,8 @@ export default function DailyDealsMobile() {
                 </button>
 
                 <Link href={`/product/${item.slug || item.id}`} className="block">
-                  <div className="h-32 rounded-xl overflow-hidden mb-3 relative bg-slate-50 flex items-center justify-center">
+                  {/* ✅ UPDATED: Added grayscale and Out of Stock Badge */}
+                  <div className={`h-32 rounded-xl overflow-hidden mb-3 relative bg-slate-50 flex items-center justify-center ${item.is_available === false ? 'grayscale opacity-70' : ''}`}>
                     {item.image ? (
                       <img 
                         src={`http://localhost:8000${item.image}`} 
@@ -189,6 +191,13 @@ export default function DailyDealsMobile() {
                       />
                     ) : (
                       <span className="text-3xl">🥩</span>
+                    )}
+                    
+                    {/* ✅ NEW: The Stockout Badge */}
+                    {item.is_available === false && (
+                      <div className="absolute top-2 left-2 bg-gray-900/90 text-white text-[9px] font-extrabold px-2 py-1 rounded uppercase tracking-widest backdrop-blur-sm z-10 shadow-sm">
+                        Out of Stock
+                      </div>
                     )}
                   </div>
                   

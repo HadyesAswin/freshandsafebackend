@@ -4,7 +4,8 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+from app.api.deps import get_current_user
+from app.core.security import verify_password
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -107,10 +108,11 @@ def login_outlet_access_token(
             detail="Incorrect email or password",
         )
 
-    if not outlet.status:
+    # ✅ THE FIX: Replaced outlet.status check with is_deleted check!
+    if getattr(outlet, 'is_deleted', False):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Outlet is inactive"
+            detail="This store has been removed by the Admin."
         )
 
     # 2. Create token - subject MUST be a string to avoid 403 lookup errors
@@ -230,3 +232,19 @@ def admin_reset_password(request: AdminResetPasswordRequest, db: Session = Depen
     db.commit()
 
     return {"message": "Admin password reset successfully."}
+
+@router.post("/verify-password")
+def verify_admin_password(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    password = data.get("password")
+
+    if not password:
+        raise HTTPException(status_code=400, detail="Password required")
+
+    if not verify_password(password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    return {"message": "Password verified"}

@@ -14,6 +14,11 @@ function OutletFormContent() {
   const editingId = searchParams.get("id");
   const [loading, setLoading] = useState(false);
 
+  const [adminPassword, setAdminPassword] = useState("");
+const [showPasswordModal, setShowPasswordModal] = useState(false);
+const [passwordError, setPasswordError] = useState("");
+const [message, setMessage] = useState("");
+
   const [formData, setFormData] = useState({
     outlet_name: "",
     email: "",
@@ -51,44 +56,80 @@ function OutletFormContent() {
     setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const token = localStorage.getItem("admin_token");
+  const submitOutlet = async () => {
+  setLoading(true);
+  setMessage("");
 
-    // Prepare payload
-    const payload: any = { ...formData };
-    
-    // Convert numbers
-    if (payload.latitude) payload.latitude = parseFloat(payload.latitude);
-    else delete payload.latitude;
-    
-    if (payload.longitude) payload.longitude = parseFloat(payload.longitude);
-    else delete payload.longitude;
+  const token = localStorage.getItem("admin_token");
 
-    // Handle Password Logic
-    if (editingId && !payload.password) {
-        delete payload.password; // Don't send empty password on edit
-    }
+  const payload: any = { ...formData };
 
-    try {
-      const url = editingId
-        ? `http://localhost:8000/api/v1/outlets/${editingId}`
-        : "http://localhost:8000/api/v1/outlets/";
+  if (payload.latitude) payload.latitude = parseFloat(payload.latitude);
+  else delete payload.latitude;
 
-      await axios({
-        method: editingId ? "put" : "post",
-        url,
-        data: payload,
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  if (payload.longitude) payload.longitude = parseFloat(payload.longitude);
+  else delete payload.longitude;
+
+  if (editingId && !payload.password) {
+    delete payload.password;
+  }
+
+  try {
+    const url = editingId
+      ? `http://localhost:8000/api/v1/outlets/${editingId}`
+      : "http://localhost:8000/api/v1/outlets/";
+
+    await axios({
+      method: editingId ? "put" : "post",
+      url,
+      data: payload,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setMessage("Outlet updated successfully ✅");
+
+    setTimeout(() => {
       router.push("/admin/outlets");
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Error saving outlet");
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, 1500);
+
+  } catch (err: any) {
+    setMessage("❌ " + (err.response?.data?.detail || "Error saving outlet"));
+  } finally {
+    setLoading(false);
+  }
+};
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (editingId) {
+    setShowPasswordModal(true); // 🔐 open password modal
+  } else {
+    submitOutlet(); // direct create
+  }
+};
+
+const handleSubmitWithPassword = async () => {
+  const token = localStorage.getItem("admin_token");
+
+  try {
+    await axios.post(
+      "http://localhost:8000/api/v1/auth/verify-password",
+      { password: adminPassword },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    setShowPasswordModal(false);
+    setAdminPassword("");
+    setPasswordError("");
+
+    await submitOutlet();
+
+  } catch (err: any) {
+    setPasswordError(err.response?.data?.detail || "Invalid password");
+  }
+};
 
   // Reusable Tailwind classes matching the minimal theme
   const inputClass = "w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent focus:bg-white outline-none transition-all p-3";
@@ -116,6 +157,12 @@ function OutletFormContent() {
           </p>
         </div>
       </div>
+
+      {message && (
+        <div className="mb-4 p-3 rounded bg-green-50 text-green-600 text-sm">
+          {message}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
         
@@ -242,10 +289,10 @@ function OutletFormContent() {
 
         {/* Submit Button */}
         <div className="pt-4 border-t border-gray-100">
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className="w-full sm:w-auto sm:min-w-[200px] flex items-center justify-center gap-2 py-3 px-6 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ml-auto"
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full sm:w-auto sm:min-w-[200px] flex items-center justify-center gap-2 py-3 px-6 bg-red-600 text-white rounded-lg"
           >
             {loading ? (
               <>
@@ -261,6 +308,37 @@ function OutletFormContent() {
           </button>
         </div>
       </form>
+      {showPasswordModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-80">
+      
+      <h3 className="font-semibold mb-3">Enter Admin Password</h3>
+
+      {passwordError && (
+        <p className="text-red-500 text-sm mb-2">{passwordError}</p>
+      )}
+
+      <input
+        type="password"
+        value={adminPassword}
+        onChange={(e) => setAdminPassword(e.target.value)}
+        className="w-full border p-2 rounded mb-4"
+        placeholder="Enter password"
+      />
+
+      <div className="flex justify-end gap-2">
+        <button onClick={() => setShowPasswordModal(false)}>Cancel</button>
+
+        <button
+          onClick={handleSubmitWithPassword}
+          className="bg-red-600 text-white px-4 py-2 rounded"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

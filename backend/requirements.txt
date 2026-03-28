@@ -13,3 +13,4 @@ redis==5.0.1
 celery==5.3.6
 requests==2.31.0
 razorpay==1.4.1
+apscheduler==3.10.4

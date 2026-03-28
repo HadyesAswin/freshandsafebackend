@@ -16,6 +16,7 @@ interface ProductDetails {
   compare_price?: number | null;
   unit?: string;
   category?: string;
+  is_available?: boolean;
 }
 
 interface CartItem {
@@ -258,10 +259,17 @@ export default function ProductMobile() {
       </div>
 
       {/* Image Slider */}
-      <div className="relative">
+      <div className={`relative ${product.is_available === false ? 'grayscale opacity-70' : ''}`}>
         <button onClick={toggleWishlist} disabled={wishlistLoading} className="absolute top-4 right-8 z-20 p-3 bg-white/90 backdrop-blur-sm rounded-full transition-all active:scale-90">
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={isInWishlist ? "#10b981" : "none"} stroke={isInWishlist ? "#10b981" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.505 4.046 3 5.5L12 21Z"/></svg>
         </button>
+
+        {/* ✅ NEW: The Stockout Badge */}
+        {product.is_available === false && (
+          <div className="absolute top-4 left-6 bg-gray-900/90 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded uppercase tracking-widest backdrop-blur-sm z-10 shadow-lg">
+            Out of Stock
+          </div>
+        )}
 
         <div className="flex overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-slate-50 relative mx-4 mt-4 rounded-3xl overflow-hidden border border-slate-100"
           onScroll={(e) => {
@@ -321,16 +329,29 @@ export default function ProductMobile() {
       </div>
 
       {/* Sticky Bottom Add to Cart — above MobileNavbar */}
+      {/* Sticky Bottom Add to Cart — above MobileNavbar */}
       <div className="fixed bottom-20 left-0 right-0 z-[45] px-4 pb-3 flex items-center gap-3">
-        <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden h-11 flex-shrink-0">
+        
+        {/* ✅ UPDATED: Disable the + / - buttons if out of stock */}
+        <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden h-11 flex-shrink-0 ${product.is_available === false ? 'opacity-50 pointer-events-none' : ''}`}>
           <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 h-full flex items-center justify-center text-[#00b8d9] font-bold text-lg">-</button>
           <span className="w-8 text-center font-bold text-sm">{qty}</span>
           <button onClick={() => setQty(qty + 1)} className="w-10 h-full flex items-center justify-center text-[#00b8d9] font-bold text-lg">+</button>
         </div>
 
-        <button onClick={handleAddToCart} className="flex-1 bg-[#00b8d9] text-white h-11 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+        {/* ✅ UPDATED: Disable the Add to Cart button entirely */}
+        <button 
+          onClick={handleAddToCart} 
+          disabled={product.is_available === false}
+          className={`flex-1 h-11 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all ${
+            product.is_available === false 
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+              : 'bg-[#00b8d9] text-white hover:opacity-90'
+          }`}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-          Add to Cart | ₹{totalPrice}
+          
+          {product.is_available === false ? 'Out of Stock' : `Add to Cart | ₹${totalPrice}`}
         </button>
       </div>
     </div>

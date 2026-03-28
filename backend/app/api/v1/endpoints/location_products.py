@@ -109,7 +109,7 @@ def get_home_data(zipcode: str= None, db: Session = Depends(get_db)):
 
     # FILTER: Only include outlets where status is TRUE (Open) AND not deleted
     # ✅ SOFT DELETE FILTER APPLIED
-    active_outlets = [outlet for outlet in nearby_outlets if outlet.status is True and outlet.is_deleted is False]
+    active_outlets = [outlet for outlet in nearby_outlets if outlet.status == True and outlet.is_deleted == False]
     outlet_ids = [outlet.id for outlet in active_outlets]
 
     # If no active outlets are found nearby
@@ -134,7 +134,7 @@ def get_home_data(zipcode: str= None, db: Session = Depends(get_db)):
             ShopProduct.outlet_id.in_(outlet_ids),
             ShopProduct.is_available == True,
             Product.status == True,
-            Product.is_available == True,
+
             Product.is_deleted == False
         )
         .all()
@@ -157,6 +157,7 @@ def get_home_data(zipcode: str= None, db: Session = Depends(get_db)):
                 "image": product.image,
                 "price": product.price,  # Show standard MRP
                 "compare_price": product.compare_price,  # ✅ ADDED THIS LINE
+                "is_available": product.is_available,
                 "unit": product.unit,
                 "category_name": cat_name
             })
@@ -224,7 +225,7 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
             ShopProduct.outlet_id.in_(outlet_ids),
             ShopProduct.is_available == True,
             Product.status == True,
-            Product.is_available == True,
+            
             Product.is_deleted == False
         )
         .all()
@@ -240,6 +241,7 @@ def get_products_by_category(slug: str, zipcode: str, db: Session = Depends(get_
                 "image": p.image,
                 "price": p.price,
                 "compare_price": p.compare_price,
+                "is_available": p.is_available,
                 "unit": p.unit
             }
             for p in products
@@ -271,7 +273,7 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
         .filter(
             Product.slug == slug,
             Product.status == True,
-            Product.is_available == True,
+            
             Product.is_deleted == False
         )
         .first()
@@ -317,6 +319,7 @@ def get_product_details(slug: str, zipcode: str, db: Session = Depends(get_db)):
         "images": product.images,
         "price": product.price,                 # ✅ Always use standard MRP
         "compare_price": product.compare_price,
+        "is_available": product.is_available,
         "unit": product.unit,
         "category": product.category.name
     }
@@ -396,7 +399,7 @@ def search_items(q: str,zipcode: str = None, db: Session = Depends(get_db)):
                         ShopProduct.outlet_id.in_(outlet_ids),
                         ShopProduct.is_available == True,
                         Product.status == True,
-                        Product.is_available == True,
+                        
                         Product.is_deleted == False,
                         or_(
                             Product.name.ilike(search_query),
@@ -408,7 +411,7 @@ def search_items(q: str,zipcode: str = None, db: Session = Depends(get_db)):
                 )
 
                 product_results = [
-                    {"name": p.name, "slug": p.slug, "image": p.image, "price": p.price, "type": "product"}
+                    {"name": p.name, "slug": p.slug, "image": p.image, "price": p.price, "type": "product","is_available": p.is_available}
                     for p in products
                 ]
 

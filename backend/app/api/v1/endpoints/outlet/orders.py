@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_ # ✅ Added or_ here
@@ -18,6 +19,30 @@ from app.schemas.order import (
 from app.api.v1.endpoints.outlet.auth import get_current_outlet 
 
 router = APIRouter()
+
+# ==========================================
+# OUTLET STATUS ON/OFF TOGGLE (MOVED TO TOP)
+# ==========================================
+class OutletStatusUpdate(BaseModel):
+    status: bool
+
+@router.get("/status")
+def get_outlet_status(db: Session = Depends(get_db), current_outlet: Outlet = Depends(get_current_outlet)):
+    """Get the current ON/OFF status of the outlet"""
+    db.refresh(current_outlet) 
+    return {"status": current_outlet.status}
+
+@router.put("/status")
+def update_outlet_status(req: OutletStatusUpdate, db: Session = Depends(get_db), current_outlet: Outlet = Depends(get_current_outlet)):
+    """Turn the outlet ON or OFF"""
+    current_outlet.status = req.status
+    db.commit()
+    
+    status_text = "OPEN" if req.status else "CLOSED"
+    return {
+        "message": f"Store is now {status_text}", 
+        "status": current_outlet.status
+    }
 
 # --- 1. GET DASHBOARD STATS ---
 @router.get("/stats/summary")
@@ -105,6 +130,67 @@ def get_out_for_delivery_orders(
 
     return orders
 
+@router.get("/completed", response_model=List[OrderResponse])
+def get_completed_orders(
+    db: Session = Depends(get_db),
+    current_outlet: Outlet = Depends(get_current_outlet)
+):
+    """
+    Fetch ONLY delivered orders for outlet
+    """
+
+    orders = (
+        db.query(Order)
+        .options(joinedload(Order.order_items).joinedload(OrderItem.product))
+        .filter(
+            Order.outlet_id == current_outlet.id,
+            Order.order_status == OrderStatus.DELIVERED
+        )
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+
+    print(f"✅ Completed Orders Found: {len(orders)}")
+
+    return orders
+
+
+@router.get("/orders")
+def get_orders(
+    page: int = 1,
+    limit: int = 10,
+    period: Optional[str] = "week",
+    db: Session = Depends(get_db),
+    current_outlet: Outlet = Depends(get_current_outlet)
+):
+    query = db.query(Order).filter(
+        Order.outlet_id == current_outlet.id,
+        Order.payment_status == PaymentStatus.PAID
+    )
+
+    # Apply period filter
+    if period == "week":
+        start_date = datetime.now() - timedelta(days=7)
+        query = query.filter(Order.created_at >= start_date)
+
+    elif period == "month":
+        start_date = datetime.now() - timedelta(days=30)
+        query = query.filter(Order.created_at >= start_date)
+
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    return orders
+
+# ====================================================================
+# ⚠️ DYNAMIC ROUTES BELOW THIS LINE ⚠️
+# {order_id} must be at the bottom so it doesn't break static links!
+# ====================================================================
+
 # --- 3. GET SINGLE ORDER DETAILS ---
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order_details(order_id: int, db: Session = Depends(get_db), current_outlet: Outlet = Depends(get_current_outlet)):
@@ -166,60 +252,3 @@ def update_order_status(
         db.rollback()
         print(f"❌ DB Update Failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Database error")
-
-
-@router.get("/completed", response_model=List[OrderResponse])
-def get_completed_orders(
-    db: Session = Depends(get_db),
-    current_outlet: Outlet = Depends(get_current_outlet)
-):
-    """
-    Fetch ONLY delivered orders for outlet
-    """
-
-    orders = (
-        db.query(Order)
-        .options(joinedload(Order.order_items).joinedload(OrderItem.product))
-        .filter(
-            Order.outlet_id == current_outlet.id,
-            Order.order_status == OrderStatus.DELIVERED
-        )
-        .order_by(Order.created_at.desc())
-        .all()
-    )
-
-    print(f"✅ Completed Orders Found: {len(orders)}")
-
-    return orders
-
-
-@router.get("/orders")
-def get_orders(
-    page: int = 1,
-    limit: int = 10,
-    period: Optional[str] = "week",
-    db: Session = Depends(get_db),
-    current_outlet: Outlet = Depends(get_current_outlet)
-):
-    query = db.query(Order).filter(
-        Order.outlet_id == current_outlet.id,
-        Order.payment_status == PaymentStatus.PAID
-    )
-
-    # Apply period filter
-    if period == "week":
-        start_date = datetime.now() - timedelta(days=7)
-        query = query.filter(Order.created_at >= start_date)
-
-    elif period == "month":
-        start_date = datetime.now() - timedelta(days=30)
-        query = query.filter(Order.created_at >= start_date)
-
-    orders = (
-        query.order_by(Order.created_at.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
-        .all()
-    )
-
-    return orders

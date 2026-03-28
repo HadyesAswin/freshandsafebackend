@@ -33,6 +33,7 @@ interface CartItem {
   quantity: number;
   unit?: string;
   is_available?: boolean;
+  max_stock?: number;
 }
 
 // ✅ Deduplicate cart items — warn in dev, merge as safety net
@@ -608,8 +609,10 @@ const CartMobile: React.FC = () => {
           return (
             <div key={`${item.id}-${index}`} className={`bg-white p-3.5 rounded-2xl border relative ${isUnavailable ? 'opacity-60 border-rose-200 bg-rose-50/30' : 'border-slate-100'}`}>
               {isUnavailable && (
-                <div className="absolute top-0 left-0 bg-rose-500 text-white px-2.5 py-1 rounded-br-xl rounded-tl-2xl z-10">
-                  <span className="text-[8px] font-bold uppercase tracking-wider">Unavailable</span>
+                <div className="absolute top-0 left-0 bg-rose-500 text-white px-2.5 py-1 rounded-br-xl rounded-tl-2xl z-10 shadow-sm">
+                  <span className="text-[8px] font-bold uppercase tracking-wider">
+                    {item.max_stock === 0 ? "Stockout" : "Unavailable"}
+                  </span>
                 </div>
               )}
               <div className="flex gap-3">
@@ -621,7 +624,10 @@ const CartMobile: React.FC = () => {
                     </div>
                   )}
                   {isUnavailable ? (
-                    <h3 className="text-sm font-bold text-slate-400 line-through leading-snug line-clamp-2">{item.name}</h3>
+                    <h3 className="text-sm font-bold text-slate-400 line-through leading-snug line-clamp-2">
+                      {item.name}
+                      <span className="ml-2 text-[8px] no-underline inline-block bg-slate-100 px-1.5 py-0.5 rounded text-slate-400 font-bold uppercase tracking-tight">Disabled</span>
+                    </h3>
                   ) : (
                     <Link href={`/product/${item.slug}`}>
                       <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2">{item.name}</h3>
@@ -665,7 +671,9 @@ const CartMobile: React.FC = () => {
                        </p>
                     )}
                   </div>
-                  <span className={`text-sm font-extrabold min-w-[60px] text-right ${isUnavailable ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                  <span className={`text-sm font-extrabold min-w-[60px] text-right ${
+                    isUnavailable ? 'text-slate-300 line-through' : 'text-slate-900'
+                  }`}>
                     ₹{(item.price * item.quantity).toFixed(2)}
                   </span>
                 </div>

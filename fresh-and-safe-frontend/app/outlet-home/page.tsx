@@ -8,13 +8,18 @@ import {
   Loader2, 
   PackageOpen, 
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  Store // ✅ Added Store icon for the switch
 } from "lucide-react";
 
 export default function ShopHomePage() {
   const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ NEW: Status States for the ON/OFF Toggle
+  const [isOnline, setIsOnline] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
 
   const fetchOrders = async () => {
     const token = localStorage.getItem("outlet_token");
@@ -54,7 +59,52 @@ export default function ShopHomePage() {
     }
   };
 
+  // ✅ NEW: Fetch Initial Store Status
+  const fetchStatus = async () => {
+    const token = localStorage.getItem("outlet_token");
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/outlet/orders/status", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsOnline(data.status);
+      }
+    } catch (err) {
+      console.error("Failed to fetch status", err);
+    }
+  };
+
+  // ✅ NEW: Toggle Store Status (ON/OFF)
+  const handleToggleStatus = async () => {
+    setIsToggling(true);
+    const token = localStorage.getItem("outlet_token");
+    const newStatus = !isOnline;
+    
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/outlet/orders/status", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (res.ok) {
+        setIsOnline(newStatus);
+      } else {
+        alert("Failed to update store status.");
+      }
+    } catch (err) {
+      alert("Network error. Could not reach the server.");
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   useEffect(() => {
+    fetchStatus(); // ✅ Call fetchStatus when page loads
     fetchOrders();
 
     const ws = new WebSocket("ws://localhost:8000/ws/orders");
@@ -96,18 +146,18 @@ export default function ShopHomePage() {
     };
   }, []);
 
+  // ✅ NEW 1-CLICK ACCEPT & DISPATCH
   const updateStatus = async (orderId: number, currentStatus: string) => {
     const token = localStorage.getItem("outlet_token");
     const status = currentStatus?.toLowerCase();
 
-    // =================================================================
-    // 🚚 THE QWQER DISPATCH STEP 
-    // =================================================================
-    if (status === "preparing") {
-      if (!window.confirm("Are you sure the order is packed and ready for the QWQER rider?")) return;
+    // ✅ FIX: Allow action if the order is Pending OR Confirmed (Paid)
+    if (status === "pending" || status === "confirmed") {
+      if (!window.confirm("Accepting this order will automatically dispatch a QWQER rider. Are you sure it's ready?")) return;
 
       try {
         setLoading(true);
+        // Skip manual updates and immediately call QWQER Dispatch!
         const res = await fetch(`http://localhost:8000/api/v1/orders/${orderId}/dispatch`, {
           method: "POST",
           headers: {
@@ -119,7 +169,7 @@ export default function ShopHomePage() {
         const data = await res.json();
 
         if (res.ok) {
-          alert(`Success! QWQER driver assigned.\nTracking Key: ${data.qwqer_details.order_key}`);
+          alert(`Order Accepted! QWQER driver assigned.\nTracking Key: ${data.qwqer_details.order_key}`);
           fetchOrders(); 
         } else {
           alert(`QWQER Dispatch Failed:\n${data.detail || data.message}`);
@@ -129,69 +179,34 @@ export default function ShopHomePage() {
       } finally {
         setLoading(false);
       }
-      return; 
-    }
-
-    // =================================================================
-    // 🧑‍🍳 STANDARD STATUS UPDATES (Confirmed -> Preparing, etc.)
-    // =================================================================
-    let nextStatus = "";
-    if (status === "confirmed") nextStatus = "preparing"; 
-    else if (status === "pending") nextStatus = "confirmed"; 
-
-    if (!nextStatus) return;
-
-    try {
-      setLoading(true);
-      const res = await fetch(`http://localhost:8000/api/v1/outlet/orders/${orderId}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      if (res.ok) {
-        fetchOrders(); 
-      } else {
-        alert("Failed to update status in the database.");
-      }
-    } catch (err) {
-      alert("Network error. Failed to update status.");
-    } finally {
-      setLoading(false);
     }
   };
 
-  // ✅ CHANGED: Now accepts the whole 'order' object
   const getButtonText = (order: any) => {
     const s = (order.order_status || order.status)?.toLowerCase();
     
-    // ✅ ADDED: If we successfully called Qwqer, it will have an ID. Force it to say Waiting!
-    if (order.qwqer_order_id && s === "preparing") return "Waiting for Rider...";
-
-    switch (s) {
-      case "pending": return "Accept Order";
-      case "confirmed": return "Start Preparing";
-      case "preparing": return "Call QWQER Rider";
-      case "ready_for_pickup": return "Waiting for Rider...";
-      case "out_for_delivery": return "Rider En Route";
-      default: return "Update Status";
+    // ✅ FIX: Show "Accept Order" for both pending and confirmed orders
+    if ((s === "pending" || s === "confirmed") && !order.qwqer_order_id) {
+      return "Accept Order";
     }
+    
+    // If it's anything else, it's out of the manager's hands
+    if (order.qwqer_order_id || ["preparing", "ready_for_pickup"].includes(s)) {
+      return "Waiting for Rider...";
+    }
+    
+    return "Processing...";
   };
 
   const getStatusBadgeInfo = (status: string) => {
     const s = status?.toLowerCase() || "";
     switch (s) {
       case "pending": 
-        return { text: "Pending", style: "bg-yellow-50 text-yellow-700 border-yellow-200" };
-      case "confirmed": 
-        return { text: "Confirmed", style: "bg-blue-50 text-blue-700 border-blue-200" };
+      case "confirmed": // ✅ FIX: Map Confirmed to "New Order"
+        return { text: "New Order", style: "bg-yellow-50 text-yellow-700 border-yellow-200" };
       case "preparing": 
-        return { text: "Preparing", style: "bg-orange-50 text-orange-700 border-orange-200" };
       case "ready_for_pickup": 
-        return { text: "Waiting for Rider", style: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+        return { text: "Rider Assigned", style: "bg-indigo-50 text-indigo-700 border-indigo-200" };
       case "out_for_delivery": 
         return { text: "Out for Delivery", style: "bg-purple-50 text-purple-700 border-purple-200" };
       default: 
@@ -203,7 +218,7 @@ export default function ShopHomePage() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       
       {/* Header Area */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <ShoppingBag className="w-6 h-6 text-red-600" />
@@ -212,14 +227,42 @@ export default function ShopHomePage() {
           <p className="text-sm text-gray-500 mt-1">Manage and update the status of your current orders.</p>
         </div>
         
-        <button 
-          onClick={fetchOrders} 
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-red-600' : 'text-gray-400'}`} />
-          Refresh List
-        </button>
+        {/* ✅ NEW: Top Action Bar containing the Toggle & Refresh buttons */}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          
+          {/* The ON/OFF Switch */}
+          <div className={`flex items-center gap-3 px-4 py-2 border rounded-xl shadow-sm flex-1 md:flex-none justify-between transition-colors ${isOnline ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-100 border-gray-300'}`}>
+            <div className="flex items-center gap-2">
+              <Store className={`w-4 h-4 ${isOnline ? 'text-emerald-600' : 'text-gray-500'}`} />
+              <span className={`text-sm font-bold tracking-wide uppercase ${isOnline ? 'text-emerald-700' : 'text-gray-500'}`}>
+                {isOnline ? 'Store OPEN' : 'Store CLOSED'}
+              </span>
+            </div>
+            <button
+              onClick={handleToggleStatus}
+              disabled={isToggling}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+                isOnline ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
+            >
+              <span 
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                  isOnline ? 'translate-x-6' : 'translate-x-1'
+                }`} 
+              />
+            </button>
+          </div>
+
+          {/* Refresh Button */}
+          <button 
+            onClick={fetchOrders} 
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 h-[42px] w-12 md:w-auto flex-shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-red-600' : 'text-gray-400'}`} />
+            <span className="hidden md:inline">Refresh</span>
+          </button>
+        </div>
       </div>
       
       {/* Table Container */}
@@ -251,8 +294,11 @@ export default function ShopHomePage() {
                 </tr>
               ) : (
                 orders.map((order: any) => {
-                  const currentStatus = order.order_status || order.status;
-                  const isWaitingForRider = ["ready_for_pickup", "out_for_delivery"].includes(currentStatus?.toLowerCase()) || (!!order.qwqer_order_id && currentStatus?.toLowerCase() === "preparing");
+                  const currentStatus = (order.order_status || order.status)?.toLowerCase();
+                  
+                  // ✅ FIX: Button is only locked if Qwqer is dispatched OR status is past 'confirmed'
+                  const isWaitingForRider = !["pending", "confirmed"].includes(currentStatus) || !!order.qwqer_order_id;
+                  
                   const badgeInfo = getStatusBadgeInfo(currentStatus);
 
                   return (
@@ -264,7 +310,6 @@ export default function ShopHomePage() {
                       </td>
                       <td className="px-6 py-4 max-w-md">
                         <div className="text-sm text-gray-600 truncate">
-                          {/* ✅ Includes Unit now. Example: "Product Name (2 x 500g)" */}
                           {order.order_items?.map((i: any) => 
                             `${i.product?.name || "Product"} (${i.quantity}${i.product?.unit ? ` x ${i.product.unit}` : ''})`
                           ).join(", ")}

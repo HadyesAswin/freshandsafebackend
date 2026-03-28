@@ -16,6 +16,7 @@ interface ProductDetails {
   compare_price?: number | null;
   unit?: string;
   category?: string;
+  is_available?: boolean;
 }
 
 interface CartItem {
@@ -268,10 +269,18 @@ export default function ProductDesktop() {
                 </div>
               </div>
 
-              <div className="relative bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden group aspect-square">
-                <button onClick={toggleWishlist} disabled={wishlistLoading} className="absolute top-4 right-4 z-20 p-3 bg-white/90 backdrop-blur-sm rounded-full transition-all active:scale-90">
+              <div className={`relative bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden group aspect-square transition-all ${product.is_available === false ? 'grayscale opacity-70' : ''}`}>
+                <button onClick={toggleWishlist} disabled={wishlistLoading} className="absolute top-4 right-4 z-20 p-3 bg-white/90 backdrop-blur-sm rounded-full transition-all active:scale-90 shadow-sm hover:scale-105">
                   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={isInWishlist ? "#10b981" : "none"} stroke={isInWishlist ? "#10b981" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.505 4.046 3 5.5L12 21Z"/></svg>
                 </button>
+                
+                {/* ✅ NEW: The Stockout Badge */}
+                {product.is_available === false && (
+                  <div className="absolute top-4 left-4 bg-gray-900/90 text-white text-[12px] font-extrabold px-3 py-1.5 rounded uppercase tracking-widest backdrop-blur-sm z-10 shadow-lg">
+                    Out of Stock
+                  </div>
+                )}
+
                 {activeImage ? (
                   <img src={`http://localhost:8000${activeImage}`} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                 ) : (
@@ -299,7 +308,8 @@ export default function ProductDesktop() {
 
               <div className="mt-6 p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden h-12">
+                  {/* ✅ UPDATED: Disable the + / - buttons if out of stock */}
+                  <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden h-12 ${product.is_available === false ? 'opacity-50 pointer-events-none' : ''}`}>
                     <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-12 h-full flex items-center justify-center text-[#00b8d9] font-bold text-xl hover:bg-slate-50 transition-colors">-</button>
                     <span className="w-10 text-center font-bold text-lg">{qty}</span>
                     <button onClick={() => setQty(qty + 1)} className="w-12 h-full flex items-center justify-center text-[#00b8d9] font-bold text-xl hover:bg-slate-50 transition-colors">+</button>
@@ -309,9 +319,22 @@ export default function ProductDesktop() {
                   </div>
                 </div>
 
-                <button onClick={handleAddToCart} className="w-full bg-[#00b8d9] hover:bg-[#00a2bf] text-white h-14 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98]">
+                {/* ✅ UPDATED: Disable the Add to Cart button entirely */}
+                <button 
+                  onClick={handleAddToCart} 
+                  disabled={product.is_available === false}
+                  className={`w-full h-14 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${
+                    product.is_available === false 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-[#00b8d9] hover:bg-[#00a2bf] text-white'
+                  }`}
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                  Add to Cart <span className="opacity-40 font-normal">|</span> ₹{totalPrice}
+                  {product.is_available === false ? 'Out of Stock' : (
+                    <>
+                      Add to Cart <span className="opacity-40 font-normal">|</span> ₹{totalPrice}
+                    </>
+                  )}
                 </button>
               </div>
 

@@ -5,7 +5,6 @@ import {
   Package, 
   Activity, 
   Image as ImageIcon, 
-  Power, 
   Loader2 
 } from "lucide-react";
 
@@ -47,25 +46,6 @@ export default function OutletViewProduct() {
     }
   };
 
-  // const handleToggle = async (productId: number) => {
-  //   try {
-  //     // Optimistic Update: Change UI immediately before server responds
-  //     setProducts(prev => prev.map(p => 
-  //       p.id === productId ? { ...p, is_enabled: !p.is_enabled } : p
-  //     ));
-
-  //     await axios.post(
-  //       "http://localhost:8000/api/v1/outlet/products/toggle",
-  //       null,
-  //       { params: { outlet_id: outletId, product_id: productId } }
-  //     );
-  //     // No need to fetchProducts() here because the Interval will catch it anyway!
-  //   } catch (err) {
-  //     console.error("Toggle failed");
-  //     fetchProducts(true); // Revert changes on error
-  //   }
-  // };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       
@@ -81,7 +61,7 @@ export default function OutletViewProduct() {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
             </span>
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Control which products are visible to customers in your outlet.</p>
+          <p className="text-sm text-gray-500 mt-1">View the current status of products assigned to your outlet.</p>
         </div>
         
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 shadow-sm">
@@ -103,13 +83,16 @@ export default function OutletViewProduct() {
           <div
             key={product.id}
             className={`group relative flex flex-col bg-white p-5 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md ${
-                product.is_enabled 
-                  ? "border-gray-200" 
-                  : "border-gray-200 opacity-80 grayscale-[20%]"
+                !product.is_available
+                  ? "border-red-200 bg-red-50/30 grayscale opacity-60" // 🔴 Admin Stockout
+                  : product.is_enabled 
+                    ? "border-gray-200" // 🟢 Published
+                    : "border-gray-200 opacity-80 grayscale-[20%]" // ⚫ Hidden by Shop
             }`}
           >
-            {/* Status Badge */}
-            <div className="absolute top-4 right-4 z-10">
+            {/* Status Badges */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5 items-end">
+              {/* Local Shop Status */}
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                 product.is_enabled 
                   ? "bg-green-50 text-green-700 border-green-200" 
@@ -117,6 +100,13 @@ export default function OutletViewProduct() {
               }`}>
                 {product.is_enabled ? "Published" : "Hidden"}
               </span>
+
+              {/* ✅ Global Admin Stockout Badge */}
+              {!product.is_available && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border bg-red-600 text-white border-red-700 shadow-sm">
+                  Global Stockout
+                </span>
+              )}
             </div>
 
             {/* Product Info */}
@@ -132,8 +122,8 @@ export default function OutletViewProduct() {
                     <ImageIcon className="w-6 h-6 text-gray-300" />
                 )}
                 
-                {/* Overlay if hidden */}
-                {!product.is_enabled && (
+                {/* Overlay if hidden locally */}
+                {(!product.is_enabled || !product.is_available) && (
                   <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]"></div>
                 )}
               </div>
@@ -146,7 +136,6 @@ export default function OutletViewProduct() {
                     {product.category_name}
                   </p>
                   
-                  {/* ✅ Added the Product Unit here! */}
                   <div className="mt-2 inline-flex items-center font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100 text-sm">
                     ₹{product.price}
                     {product.unit && (
@@ -157,21 +146,6 @@ export default function OutletViewProduct() {
                   </div>
               </div>
             </div>
-
-            {/* Action Button */}
-            {/* <div className="mt-auto pt-4 border-t border-gray-100">
-              <button
-                onClick={() => handleToggle(product.id)}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-[0.98] ${
-                  product.is_enabled
-                    ? "bg-white text-gray-600 border border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                    : "bg-red-600 text-white border border-red-600 hover:bg-red-700 shadow-sm"
-                }`}
-              >
-                <Power className="w-4 h-4" />
-                {product.is_enabled ? "Hide Product" : "Publish to Store"}
-              </button>
-            </div> */}
           </div>
         ))}
       </div>
